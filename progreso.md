@@ -9,16 +9,15 @@
 
 | Nombre | Usuario de GitHub | Rol en el grupo |
 |--------|-------------------|-----------------|
-|        |                   |                 |
-|        |                   |                 |
-|        |                   |                 |
-|        |                   |                 |
+| Juan Bautista Aramberri | Juamba02 | Ingesta, detección y red |
+| Joaquín Mazza | JoacoMazza | Agente de IA y ledger |
+| Tomás Costa | [completar] | Automatización, monitoreo, póster |
 
 ## 🎯 Proyecto
 
-- **Modalidad:** [A — Desarrollo / B — Estado del Arte / C — Trabajo de Campo]
-- **Tema:** [una línea describiendo el proyecto]
-- **Problema/objetivo:** [una o dos líneas]
+- **Modalidad:** A — Proyecto de Desarrollo
+- **Tema:** MiniSOC-IA: SOC asistido por IA sobre una red segmentada, automatizada (Ansible) y monitoreada (Prometheus/Grafana)
+- **Problema/objetivo:** Detectar, investigar y contener incidentes con IA sin perder trazabilidad ni control humano sobre la red
 
 ## 🗓️ Registro de avance
 
@@ -28,8 +27,8 @@
 
 ## 🚧 Pendientes / decisiones
 
-- [ ] Definir tema definitivo
-- [ ] Elegir modalidad (A, B o C)
+- [x] Definir tema definitivo
+- [x] Elegir modalidad (A, B o C)
 - [ ] Asignar roles (quién escribe el documento, quién arma la demo, quién el póster)
 
 ## 📝 Notas
