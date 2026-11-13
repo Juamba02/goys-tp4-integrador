@@ -83,7 +83,7 @@ Todos los cuerpos son JSON en UTF-8.
   ],
   "revision_humana": false,
   "motivos_revision": [],
-  "modelo": "ollama/llama3.2:3b",
+  "modelo": "ollama/llama3.1:8b",
   "latencia_ms": 2140,
   "emitido": "2026-11-13T14:02:20Z"
 }

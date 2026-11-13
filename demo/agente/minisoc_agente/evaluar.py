@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .ledger import Ledger
-from .llm import Ollama, Simulado
+from .llm import CONTEXTO_POR_DEFECTO, MODELO_POR_DEFECTO, Ollama, Simulado
 from .servicio import Servicio
 
 
@@ -102,7 +102,9 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Evalúa el agente contra incidentes etiquetados")
     p.add_argument("rutas", nargs="+", help="archivos o directorios con incidentes JSON")
     p.add_argument("--backend", choices=["ollama", "simulado"], default=os.environ.get("LLM_BACKEND", "ollama"))
-    p.add_argument("--modelo", default=os.environ.get("OLLAMA_MODELO", "llama3.2:3b"))
+    p.add_argument("--modelo", default=os.environ.get("OLLAMA_MODELO", MODELO_POR_DEFECTO))
+    p.add_argument("--contexto", type=int, default=int(os.environ.get("OLLAMA_CONTEXTO", str(CONTEXTO_POR_DEFECTO))),
+                   help="num_ctx de Ollama")
     p.add_argument("--url", default=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"))
     p.add_argument("--umbral", type=float, default=float(os.environ.get("UMBRAL_CONFIANZA", "0.6")))
     p.add_argument("--repeticiones", type=int, default=1)
@@ -112,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
     incidentes = cargar_incidentes(a.rutas)
     if not incidentes:
         raise SystemExit("no hay incidentes con 'etiqueta_esperada' en las rutas indicadas")
-    llm = Simulado() if a.backend == "simulado" else Ollama(a.url, a.modelo)
+    llm = Simulado() if a.backend == "simulado" else Ollama(a.url, a.modelo, contexto=a.contexto)
     if isinstance(llm, Ollama):
         import time
         t0 = time.monotonic()
