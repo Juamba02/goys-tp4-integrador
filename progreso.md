@@ -23,7 +23,8 @@
 
 | Fecha | Qué se hizo | Quién | Commit |
 |-------|-------------|-------|--------|
-|       |             |       |        |
+| 13/11/2026 | Agente de triage con LLM local, aprobación humana, ledger encadenado, API, métricas, CLI, contrato de datos y 43 tests (`demo/agente/`, PR #2) | Joaquín Mazza | 7babd1c |
+| 13/11/2026 | Documento: secciones del agente de IA y ledger (2.2, 2.3, 3.5, 4.4, 5, 6) | Joaquín Mazza | (este PR) |
 
 ## 🚧 Pendientes / decisiones
 
