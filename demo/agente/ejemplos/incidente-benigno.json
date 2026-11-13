@@ -1,0 +1,39 @@
+{
+  "incidente_id": "INC-DEMO-0002",
+  "host": "app-01",
+  "segmento": "servicios",
+  "alertas": [
+    {
+      "alerta_id": "ALR-DEMO-0003",
+      "regla_id": "R-T1105-descarga-desde-shell",
+      "tecnica": "T1105",
+      "severidad": "media",
+      "descripcion": "Descarga de un archivo desde un shell",
+      "eventos": ["EVT-DEMO-0011", "EVT-DEMO-0012"]
+    }
+  ],
+  "eventos": [
+    {
+      "evento_id": "EVT-DEMO-0010",
+      "ts": "2026-11-13T03:00:00Z",
+      "host": "app-01",
+      "tipo": "proceso",
+      "datos": {"padre": "cron", "proceso": "/bin/sh", "usuario": "root", "cmdline": "/bin/sh /opt/scripts/actualizar-firmas.sh"}
+    },
+    {
+      "evento_id": "EVT-DEMO-0011",
+      "ts": "2026-11-13T03:00:01Z",
+      "host": "app-01",
+      "tipo": "proceso",
+      "datos": {"padre": "sh", "proceso": "/usr/bin/curl", "usuario": "root", "cmdline": "curl -s http://10.10.0.5/repo/firmas.tar.gz -o /var/lib/firmas/firmas.tar.gz"}
+    },
+    {
+      "evento_id": "EVT-DEMO-0012",
+      "ts": "2026-11-13T03:00:01Z",
+      "host": "app-01",
+      "tipo": "conexion",
+      "datos": {"ip_origen": "10.20.0.12", "ip_destino": "10.10.0.5", "puerto_destino": 80, "protocolo": "tcp"}
+    }
+  ],
+  "etiqueta_esperada": "benigno"
+}
