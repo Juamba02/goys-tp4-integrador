@@ -52,13 +52,26 @@ ESQUEMA_RESPUESTA: dict[str, Any] = {
 }
 
 
+MODELO_POR_DEFECTO = "llama3.1:8b"
+CONTEXTO_POR_DEFECTO = 4096
+RESERVA_RESPUESTA = 1024
+
+
 class Ollama:
-    def __init__(self, url: str, modelo: str, timeout: float = 120.0, mantener: str = "30m") -> None:
+    def __init__(self, url: str, modelo: str = MODELO_POR_DEFECTO, timeout: float = 120.0,
+                 mantener: str = "30m", contexto: int = CONTEXTO_POR_DEFECTO) -> None:
         self.url = url.rstrip("/")
         self.modelo = modelo
         self.timeout = timeout
         self.mantener = mantener  # cuánto queda el modelo cargado en memoria entre consultas
+        # Tamaño de contexto fijo: si se deja libre, Ollama puede reservar más memoria de
+        # video de la que hay en una placa de 6 GB y mandar parte del modelo a la CPU.
+        # 4096 tokens alcanza: prompt + incidente de los ejemplos rondan los 1.300-1.600.
+        self.contexto = contexto
         self.nombre = f"ollama/{modelo}"
+
+    def _opciones(self) -> dict[str, Any]:
+        return {"num_ctx": self.contexto}
 
     def _post(self, ruta: str, cuerpo: dict[str, Any], timeout: float) -> dict[str, Any]:
         req = urllib.request.Request(
@@ -76,16 +89,29 @@ class Ollama:
     def precalentar(self, timeout: float = 600.0) -> None:
         """Carga el modelo en memoria. La primera carga tarda mucho más que una consulta,
         así que conviene hacerla al arrancar y no con el primer incidente."""
-        self._post("/api/generate", {"model": self.modelo, "keep_alive": self.mantener}, timeout)
+        # Se precarga con el mismo num_ctx que las consultas; si no, Ollama recarga el modelo.
+        self._post("/api/generate", {"model": self.modelo, "keep_alive": self.mantener,
+                                     "options": self._opciones()}, timeout)
+
+    def tokens_estimados(self, mensajes: list[dict[str, str]]) -> int:
+        # Estimación conservadora (~3 caracteres por token para texto en español y JSON).
+        return sum(len(m["content"]) for m in mensajes) // 3
 
     def consultar(self, mensajes: list[dict[str, str]], incidente: dict[str, Any]) -> str:
+        # Ollama recorta en silencio el principio del prompt si no entra en el contexto, y
+        # ahí están las instrucciones. Mejor mandar el incidente a revisión humana que
+        # analizarlo a medias. Se reservan RESERVA_RESPUESTA tokens para la respuesta.
+        estimados = self.tokens_estimados(mensajes)
+        if estimados > self.contexto - RESERVA_RESPUESTA:
+            raise ErrorLLM(f"el incidente no entra en el contexto del modelo (~{estimados} tokens; "
+                           f"num_ctx {self.contexto} con {RESERVA_RESPUESTA} reservados para la respuesta)")
         respuesta = self._post("/api/chat", {
             "model": self.modelo,
             "messages": mensajes,
             "stream": False,
             "format": ESQUEMA_RESPUESTA,
             "keep_alive": self.mantener,
-            "options": {"temperature": 0},
+            "options": {**self._opciones(), "temperature": 0},
         }, self.timeout)
         try:
             return respuesta["message"]["content"]

@@ -62,6 +62,9 @@ seguridad: con la versión final es **0** en todos los casos.
   ataques nuevos (los marcó benignos o indeterminados) y el 8B detectó los dos.
   El 8B es más cauto con lo benigno (lo deja indeterminado). Con GPU la diferencia
   de latencia es de ~1 s; en una notebook sin GPU el 8B es bastante más lento.
+- **Decisión:** el agente usa el 8B por defecto y deja el 3B como plan B si la
+  notebook de la demo (GTX 1660 Ti, 6 GB) resulta lenta. Las mediciones se
+  hicieron sin fijar `num_ctx`; ahora el agente lo fija en 4096.
 - Con temperatura 0 los resultados se repiten casi siempre igual; el 8B cambió
   de veredicto en un incidente entre repeticiones.
 - El falso positivo que se repite (`EVAL-B04`, tres contraseñas mal escritas por

@@ -8,8 +8,9 @@ Configuración por variables de entorno:
 | AGENTE_PUERTO       | 8088                      |
 | LLM_BACKEND         | ollama (o "simulado")     |
 | OLLAMA_URL          | http://127.0.0.1:11434    |
-| OLLAMA_MODELO       | llama3.2:3b               |
+| OLLAMA_MODELO       | llama3.1:8b (o llama3.2:3b) |
 | OLLAMA_TIMEOUT      | 120                       |
+| OLLAMA_CONTEXTO     | 4096 (num_ctx)            |
 | UMBRAL_CONFIANZA    | 0.6                       |
 | CONTEXTO_RED_ARCHIVO| (vacío: contexto del lab) |
 | REDES_PROTEGIDAS    | 10.10.0.0/24,10.20.0.0/24,10.30.0.0/24 |
@@ -28,7 +29,7 @@ from pathlib import Path
 
 from .api import crear_servidor
 from .ledger import Ledger
-from .llm import ErrorLLM, Ollama, Simulado
+from .llm import CONTEXTO_POR_DEFECTO, MODELO_POR_DEFECTO, ErrorLLM, Ollama, Simulado
 from .servicio import Servicio
 from .triage import CONTEXTO_RED_POR_DEFECTO, REDES_PROTEGIDAS_POR_DEFECTO
 
@@ -43,8 +44,9 @@ def main() -> None:
     elif backend == "ollama":
         llm = Ollama(
             os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-            os.environ.get("OLLAMA_MODELO", "llama3.2:3b"),
+            os.environ.get("OLLAMA_MODELO", MODELO_POR_DEFECTO),
             float(os.environ.get("OLLAMA_TIMEOUT", "120")),
+            contexto=int(os.environ.get("OLLAMA_CONTEXTO", str(CONTEXTO_POR_DEFECTO))),
         )
     else:
         raise SystemExit(f"LLM_BACKEND desconocido: {backend} (usar 'ollama' o 'simulado')")
