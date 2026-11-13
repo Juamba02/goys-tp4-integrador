@@ -1,0 +1,20 @@
+{
+  "incidente_id": "EVAL-M02",
+  "host": "app-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-M02-1", "regla_id": "R-T1110-fuerza-bruta-ssh", "tecnica": "T1110", "severidad": "media",
+     "descripcion": "Múltiples fallos de autenticación SSH seguidos de un acceso exitoso", "eventos": ["EVT-M02-1", "EVT-M02-2"]},
+    {"alerta_id": "ALR-EVAL-M02-2", "regla_id": "R-T1021-ssh-entre-servicios", "tecnica": "T1021.004", "severidad": "alta",
+     "descripcion": "SSH desde un host del segmento de servicios hacia otro host de servicios", "eventos": ["EVT-M02-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-M02-1", "ts": "2026-11-13T11:40:00Z", "host": "app-01", "tipo": "log",
+     "datos": {"fuente": "sshd", "linea": "Failed password for root from 10.20.0.11 port 51122 ssh2", "repeticiones": 214, "ip_cliente": "10.20.0.11"}},
+    {"evento_id": "EVT-M02-2", "ts": "2026-11-13T11:43:51Z", "host": "app-01", "tipo": "log",
+     "datos": {"fuente": "sshd", "linea": "Accepted password for root from 10.20.0.11 port 51990 ssh2", "ip_cliente": "10.20.0.11"}},
+    {"evento_id": "EVT-M02-3", "ts": "2026-11-13T11:43:51Z", "host": "web-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.11", "ip_destino": "10.20.0.12", "puerto_destino": 22, "protocolo": "tcp"}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}

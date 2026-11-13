@@ -1,0 +1,18 @@
+{
+  "incidente_id": "EVAL-B05",
+  "host": "app-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-B05-1", "regla_id": "R-T1105-descarga-ejecutable", "tecnica": "T1105", "severidad": "media",
+     "descripcion": "Descarga y escritura de binarios en directorios del sistema", "eventos": ["EVT-B05-1", "EVT-B05-2", "EVT-B05-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-B05-1", "ts": "2026-11-13T06:12:00Z", "host": "app-01", "tipo": "proceso",
+     "datos": {"padre": "systemd", "proceso": "/usr/bin/unattended-upgrade", "usuario": "root", "cmdline": "/usr/bin/python3 /usr/bin/unattended-upgrade"}},
+    {"evento_id": "EVT-B05-2", "ts": "2026-11-13T06:12:04Z", "host": "app-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.12", "ip_destino": "10.10.0.5", "puerto_destino": 80, "protocolo": "tcp", "proceso": "/usr/lib/apt/methods/http"}},
+    {"evento_id": "EVT-B05-3", "ts": "2026-11-13T06:12:09Z", "host": "app-01", "tipo": "archivo",
+     "datos": {"ruta": "/usr/lib/x86_64-linux-gnu/libssl.so.3", "operacion": "modificar", "usuario": "root", "proceso": "/usr/bin/dpkg"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

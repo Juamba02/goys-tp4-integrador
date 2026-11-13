@@ -1,0 +1,20 @@
+{
+  "incidente_id": "EVAL-B02",
+  "host": "db-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-B02-1", "regla_id": "R-T1560-compresion-de-datos", "tecnica": "T1560", "severidad": "media",
+     "descripcion": "Compresión de un directorio de datos", "eventos": ["EVT-B02-1"]},
+    {"alerta_id": "ALR-EVAL-B02-2", "regla_id": "R-T1048-transferencia-volumen-alto", "tecnica": "T1048", "severidad": "alta",
+     "descripcion": "Transferencia de más de 100 MB en una sola conexión", "eventos": ["EVT-B02-2", "EVT-B02-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-B02-1", "ts": "2026-11-13T04:00:00Z", "host": "db-01", "tipo": "proceso",
+     "datos": {"padre": "cron", "proceso": "/usr/bin/pg_dump", "usuario": "postgres", "cmdline": "/opt/backup/backup-diario.sh: pg_dump -Fc tienda | gzip > /var/backups/tienda-20261113.dump.gz"}},
+    {"evento_id": "EVT-B02-2", "ts": "2026-11-13T04:03:10Z", "host": "db-01", "tipo": "proceso",
+     "datos": {"padre": "backup-diario.sh", "proceso": "/usr/bin/rsync", "usuario": "postgres", "cmdline": "rsync -az /var/backups/ backup@10.10.0.6:/srv/backups/db-01/"}},
+    {"evento_id": "EVT-B02-3", "ts": "2026-11-13T04:03:10Z", "host": "db-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.13", "ip_destino": "10.10.0.6", "puerto_destino": 22, "protocolo": "tcp", "bytes_enviados": 412000000}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

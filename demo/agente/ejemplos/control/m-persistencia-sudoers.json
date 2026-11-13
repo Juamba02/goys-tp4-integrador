@@ -1,0 +1,18 @@
+{
+  "incidente_id": "CTRL-M01",
+  "host": "app-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-CTRL-M01-1", "regla_id": "R-T1136-alta-de-usuario", "tecnica": "T1136.001", "severidad": "media",
+     "descripcion": "Alta de un usuario local", "eventos": ["EVT-CM01-1"]},
+    {"alerta_id": "ALR-CTRL-M01-2", "regla_id": "R-T1548-modificacion-sudoers", "tecnica": "T1548.003", "severidad": "alta",
+     "descripcion": "Modificación de la configuración de sudo", "eventos": ["EVT-CM01-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-CM01-1", "ts": "2026-11-13T03:41:10Z", "host": "app-01", "tipo": "proceso",
+     "datos": {"padre": "sh", "proceso": "/usr/sbin/useradd", "usuario": "root", "cmdline": "useradd -m -s /bin/bash -o -u 0 sysupd"}},
+    {"evento_id": "EVT-CM01-2", "ts": "2026-11-13T03:41:12Z", "host": "app-01", "tipo": "archivo",
+     "datos": {"ruta": "/etc/sudoers.d/99-sysupd", "operacion": "crear", "usuario": "root", "proceso": "/bin/sh", "contenido": "sysupd ALL=(ALL) NOPASSWD:ALL"}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}

