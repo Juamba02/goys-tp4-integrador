@@ -157,7 +157,7 @@ conclusiones.
 | Componente | Tecnología | Función |
 |------------|------------|---------|
 | Agente de triage | Python 3 (biblioteca estándar) | Recibe el incidente, consulta al modelo, valida la respuesta y emite el veredicto |
-| Modelo de lenguaje | Ollama + Llama 3.2 3B (local) | Propone veredicto, confianza, justificación y acciones; no tiene acceso a la red |
+| Modelo de lenguaje | Ollama + Llama 3.2 3B o Llama 3.1 8B (local) | Propone veredicto, confianza, justificación y acciones; no tiene acceso a la red |
 | Ledger | Archivo JSONL con hash encadenado (SHA-256 / HMAC-SHA-256) | Registro auditable e inalterable de cada paso del agente y de cada decisión humana |
 | Consola del analista | CLI `minisoc-agente` + API HTTP | Revisar acciones pendientes y aprobarlas o rechazarlas |
 
@@ -203,6 +203,8 @@ Tabla 1: Controles sobre la respuesta del modelo
 |--------|---------|--------------|
 | Cita eventos inexistentes | Cada ID de evidencia se busca en el incidente | Se descarta; revisión humana |
 | Actúa sobre algo ajeno | El host debe ser el del incidente y la IP debe figurar como valor en un evento | Se descarta la acción; revisión humana |
+| Bloquea una IP propia | `bloquear_ip` no se acepta sobre los segmentos de la red; un host interno se aísla | Se descarta la acción; revisión humana |
+| Descarta un ataque real | Un veredicto benigno sobre alertas altas o críticas no se cierra solo | Revisión humana |
 | Inventa acciones | Lista cerrada: `aislar_host` y `bloquear_ip`, cada una con su reversión | Se descarta; revisión humana |
 | Inyección de prompt en logs | Eventos delimitados como datos y controles anteriores | La acción inyectada no supera la validación |
 | Respuesta inválida o modelo caído | Parseo estricto | Veredicto `indeterminado`; revisión humana |
@@ -237,10 +239,13 @@ estado y un indicador de integridad del ledger. Con los incidentes sintéticos
 etiquetados cuenta además verdaderos y falsos positivos y negativos.
 
 **Decisiones de diseño.** Se usó solo la biblioteca estándar de Python para que la
-demo funcione sin Internet y sin instalar dependencias. Se eligió un modelo de 3B
-parámetros porque corre en la CPU de una notebook. Hay un modelo simulado con
-reglas fijas que sirve para los tests y como plan B si el modelo no responde
-durante la demo.
+demo funcione sin Internet y sin instalar dependencias. El prompt le da al modelo
+el contexto de la red (segmentos y servidores conocidos) y una guía de análisis, y
+el esquema de respuesta le pide la justificación y la evidencia **antes** del
+veredicto, para que razone primero y decida después. El modelo se carga en
+memoria al arrancar, porque la primera carga tarda más de un minuto. Hay un modelo
+simulado con reglas fijas que sirve para los tests y como plan B si el modelo no
+responde durante la demo.
 
 ## 4. Verificación
 
@@ -248,7 +253,7 @@ durante la demo.
 
 ### 4.4. Pruebas del agente y del ledger
 
-El agente tiene 43 pruebas automáticas (`uv run pytest` en `demo/agente`) que
+El agente tiene 49 pruebas automáticas (`uv run pytest` en `demo/agente`) que
 pasan en su totalidad. Las más relevantes:
 
 Tabla 2: Pruebas del agente
@@ -266,21 +271,47 @@ Tabla 2: Pruebas del agente
 | Reescribir el ledger completo sin la clave HMAC | La verificación falla | ✔ |
 | Reiniciar el servicio con acciones aprobadas | El estado se reconstruye desde el ledger | ✔ |
 
-En una corrida de punta a punta con el modelo simulado se enviaron los tres
-incidentes de ejemplo (webshell, actualización legítima e inyección de prompt):
-los tres se clasificaron como se esperaba, se aprobó y ejecutó una acción, se
-rechazó otra, y el ledger verificó íntegro con 17 entradas.
+**Evaluación con modelos reales.** Se armaron 16 incidentes sintéticos
+etiquetados: 12 de *ajuste*, usados para corregir el prompt, y 4 de *control*,
+escritos después y no usados para ajustar nada. Cada uno se analizó 3 veces con
+Llama 3.2 3B y Llama 3.1 8B (Ollama, temperatura 0, GPU RTX 3070).
 
-[Pendiente: resultados con Llama 3.2 3B — aciertos, falsos positivos, latencia
-media del veredicto y comportamiento ante el incidente con inyección.]
+Tabla 3: Resultados por modelo (corridas: 36 en ajuste, 12 en control)
+
+| Modelo y versión | Conjunto | Exactitud | Falsos positivos | Falsos negativos | Indeterminados | Errores sin revisión | Latencia mediana |
+|---|---|--:|--:|--:|--:|--:|--:|
+| 3B, prompt inicial | ajuste | 42 % | 6 | 12 | 3 | 15 | 1,8 s |
+| 3B, versión final | ajuste | 83 % | 3 | 3 | 0 | 0 | 2,4 s |
+| 3B, versión final | control | 50 % | 0 | 3 | 3 | 0 | 1,9 s |
+| 8B, versión final | ajuste | 83 % | 3 | 3 | 0 | 0 | 2,6 s |
+| 8B, versión final | control | 50 % | 0 | 0 | 6 | 0 | 3,4 s |
+
+La primera medición mostró que el modelo de 3B, con el prompt inicial, cerraba
+como benignos ataques evidentes (la webshell, la exfiltración de `/etc/shadow`).
+Se corrigió el prompt (contexto de red, guía de análisis, razonar antes de
+decidir) y se agregaron dos controles: el agente no puede cerrar solo una alerta
+alta o crítica, y no puede bloquear IPs de los segmentos propios (en la medición
+el modelo intentó bloquear la IP de un administrador y la de un servidor). Con
+eso los **errores que el agente habría cerrado sin revisión pasaron de 15 a 0**.
+
+En el conjunto de control el 3B no reconoció ninguno de los dos ataques nuevos;
+el 8B detectó los dos y dejó los dos benignos como indeterminados. Ninguno de los
+dos modelos resistió la inyección de prompt: los dos declararon benigno el
+incidente con confianza 1,0. Lo frenaron los controles: la acción pedida por el
+log se descartó y el incidente fue a revisión humana. La prueba de punta a punta
+con el servidor, el modelo de 8B y el ledger con clave HMAC funcionó completa:
+veredicto, aprobación, ejecución y verificación del ledger.
 
 ## 5. Limitaciones y trabajo futuro
 
 [Pendiente: limitaciones de red, detección, automatización y monitoreo]
 
-- **Agente:** un modelo de 3B parámetros razona peor que uno grande; los
-  controles evitan que una mala respuesta llegue a la red, pero no que el
-  veredicto sea incorrecto. La evaluación usa pocos incidentes sintéticos.
+- **Agente:** los modelos chicos se equivocan seguido (50 % de exactitud en los
+  incidentes de control) y declaran confianzas altas aunque fallen. Los controles
+  evitan que un error llegue a la red o cierre un incidente grave, pero el costo
+  es que la mitad de los incidentes termina en manos de un analista. La
+  evaluación usa pocos incidentes sintéticos escritos por la misma persona que el
+  prompt. Si la demo corre en una máquina con GPU conviene el modelo de 8B.
 - **Ledger:** sin clave, quien tenga acceso al archivo puede reescribir la cadena
   completa. Con clave, hace falta protegerla. Como mejora, publicar
   periódicamente el último hash fuera del SOC (por ejemplo, en el repositorio o en
@@ -294,12 +325,14 @@ media del veredicto y comportamiento ante el incidente con inyección.]
 
 [Pendiente: conclusiones del grupo y distribución del trabajo]
 
-En la parte de IA, lo más importante fue no confiar en el modelo. Pedirle al LLM
-que cite evidencia no alcanza: hay que verificarla. La validación contra el
-incidente, la lista cerrada de acciones y la aprobación humana permiten usar un
-modelo chico y local sin que un error o una inyección se convierta en un cambio en
-la red. El ledger convierte cada decisión en algo que se puede revisar después,
-que es lo que se le pide a un SOC.
+En la parte de IA, lo más importante fue no confiar en el modelo. Las mediciones
+lo confirmaron: los modelos locales se equivocan, lo hacen con confianza alta y
+obedecen texto inyectado en los logs. Lo que hizo seguro al sistema no fue el
+modelo sino lo que lo rodea: la validación contra el incidente, la lista cerrada de
+acciones, las redes protegidas, la regla de que una alerta grave no se cierra sin
+una persona y la aprobación humana. Medir antes y después de cada cambio permitió
+llevar a cero los errores que el agente cerraba solo. El ledger convierte cada
+decisión en algo que se puede revisar después, que es lo que se le pide a un SOC.
 
 ## 7. Referencias
 
