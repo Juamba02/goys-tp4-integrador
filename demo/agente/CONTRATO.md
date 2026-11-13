@@ -92,7 +92,10 @@ Todos los cuerpos son JSON en UTF-8.
 - `veredicto`: `malicioso`, `benigno` o `indeterminado`.
 - `revision_humana` es `true` si el agente no puede sostener solo lo que dice.
   `motivos_revision` dice por qué: `evidencia_inexistente`, `objetivo_no_presente`,
-  `accion_no_permitida`, `confianza_baja`, `respuesta_invalida` o `error_llm`.
+  `objetivo_protegido`, `accion_no_permitida`, `confianza_baja`,
+  `descarte_de_alerta_grave`, `respuesta_invalida` o `error_llm`.
+- Un veredicto `benigno` sobre alertas de severidad `alta` o `critica` siempre va
+  a revisión humana (`descarte_de_alerta_grave`): el agente no puede cerrarlas solo.
 - Las acciones **nunca** se ejecutan solas: nacen en estado `pendiente`.
 
 ### Acciones permitidas
@@ -100,10 +103,12 @@ Todos los cuerpos son JSON en UTF-8.
 | `tipo` | `objetivo` | Reversión |
 |--------|-----------|-----------|
 | `aislar_host` | nombre del host o contenedor del incidente | `desaislar_host` |
-| `bloquear_ip` | IP que aparece en algún evento del incidente | `desbloquear_ip` |
+| `bloquear_ip` | IP que aparece en algún evento del incidente y no pertenece a las redes protegidas | `desbloquear_ip` |
 
-Cualquier otro tipo, o un objetivo que no figura en el incidente, se descarta y
-el incidente pasa a revisión humana.
+Cualquier otro tipo, un objetivo que no figura en el incidente o una IP de las
+redes protegidas (por defecto 10.10.0.0/24, 10.20.0.0/24 y 10.30.0.0/24; variable
+`REDES_PROTEGIDAS`) se descarta y el incidente pasa a revisión humana. Un host
+interno comprometido se aísla, no se bloquea su IP.
 
 ---
 

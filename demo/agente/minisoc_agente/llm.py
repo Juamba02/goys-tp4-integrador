@@ -26,13 +26,15 @@ class ClienteLLM(Protocol):
 # Esquema que se le pide a Ollama (salida estructurada). El agente igual valida
 # todo después: el esquema ayuda al modelo, pero no es una garantía.
 ESQUEMA_RESPUESTA: dict[str, Any] = {
+    # El orden importa: el modelo genera en este orden, así que primero razona
+    # (justificación y evidencia) y recién después decide el veredicto.
     "type": "object",
     "properties": {
+        "justificacion": {"type": "string"},
+        "evidencia": {"type": "array", "items": {"type": "string"}},
         "veredicto": {"type": "string", "enum": ["malicioso", "benigno", "indeterminado"]},
         "confianza": {"type": "number"},
         "severidad": {"type": "string", "enum": ["baja", "media", "alta", "critica"]},
-        "justificacion": {"type": "string"},
-        "evidencia": {"type": "array", "items": {"type": "string"}},
         "acciones_propuestas": {
             "type": "array",
             "items": {
@@ -46,36 +48,45 @@ ESQUEMA_RESPUESTA: dict[str, Any] = {
             },
         },
     },
-    "required": ["veredicto", "confianza", "severidad", "justificacion", "evidencia", "acciones_propuestas"],
+    "required": ["justificacion", "evidencia", "veredicto", "confianza", "severidad", "acciones_propuestas"],
 }
 
 
 class Ollama:
-    def __init__(self, url: str, modelo: str, timeout: float = 120.0) -> None:
+    def __init__(self, url: str, modelo: str, timeout: float = 120.0, mantener: str = "30m") -> None:
         self.url = url.rstrip("/")
         self.modelo = modelo
         self.timeout = timeout
+        self.mantener = mantener  # cuánto queda el modelo cargado en memoria entre consultas
         self.nombre = f"ollama/{modelo}"
 
-    def consultar(self, mensajes: list[dict[str, str]], incidente: dict[str, Any]) -> str:
-        cuerpo = {
-            "model": self.modelo,
-            "messages": mensajes,
-            "stream": False,
-            "format": ESQUEMA_RESPUESTA,
-            "options": {"temperature": 0},
-        }
+    def _post(self, ruta: str, cuerpo: dict[str, Any], timeout: float) -> dict[str, Any]:
         req = urllib.request.Request(
-            f"{self.url}/api/chat",
+            f"{self.url}{ruta}",
             data=json.dumps(cuerpo).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                respuesta = json.load(r)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.load(r)
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
             raise ErrorLLM(f"no se pudo consultar Ollama en {self.url}: {e}") from e
+
+    def precalentar(self, timeout: float = 600.0) -> None:
+        """Carga el modelo en memoria. La primera carga tarda mucho más que una consulta,
+        así que conviene hacerla al arrancar y no con el primer incidente."""
+        self._post("/api/generate", {"model": self.modelo, "keep_alive": self.mantener}, timeout)
+
+    def consultar(self, mensajes: list[dict[str, str]], incidente: dict[str, Any]) -> str:
+        respuesta = self._post("/api/chat", {
+            "model": self.modelo,
+            "messages": mensajes,
+            "stream": False,
+            "format": ESQUEMA_RESPUESTA,
+            "keep_alive": self.mantener,
+            "options": {"temperature": 0},
+        }, self.timeout)
         try:
             return respuesta["message"]["content"]
         except (KeyError, TypeError) as e:

@@ -15,7 +15,15 @@ from typing import Any
 from .ledger import Ledger, ahora_iso
 from .llm import ClienteLLM, ErrorLLM
 from .metricas import MetricasAgente
-from .triage import construir_mensajes, parsear_respuesta, validar_incidente, validar_respuesta, veredicto_fallido
+from .triage import (
+    CONTEXTO_RED_POR_DEFECTO,
+    REDES_PROTEGIDAS_POR_DEFECTO,
+    construir_mensajes,
+    parsear_respuesta,
+    validar_incidente,
+    validar_respuesta,
+    veredicto_fallido,
+)
 
 TRANSICIONES = {
     "aprobar": ("pendiente", "aprobada", "accion_aprobada"),
@@ -42,10 +50,14 @@ def _parse_ts(ts: str) -> datetime | None:
 
 
 class Servicio:
-    def __init__(self, ledger: Ledger, llm: ClienteLLM, umbral_confianza: float = 0.6) -> None:
+    def __init__(self, ledger: Ledger, llm: ClienteLLM, umbral_confianza: float = 0.6,
+                 contexto_red: str = CONTEXTO_RED_POR_DEFECTO,
+                 redes_protegidas: tuple[str, ...] = REDES_PROTEGIDAS_POR_DEFECTO) -> None:
         self.ledger = ledger
         self.llm = llm
         self.umbral_confianza = umbral_confianza
+        self.contexto_red = contexto_red
+        self.redes_protegidas = redes_protegidas
         self._lock = threading.RLock()
         self._veredictos: dict[str, dict[str, Any]] = {}
         self._acciones: dict[str, dict[str, Any]] = {}
@@ -102,7 +114,7 @@ class Servicio:
         self.metricas.incidentes.inc()
         self.ledger.registrar("incidente_recibido", iid, {"incidente": inc})
 
-        mensajes = construir_mensajes(inc)
+        mensajes = construir_mensajes(inc, self.contexto_red)
         self.ledger.registrar("consulta_llm", iid, {"modelo": self.llm.nombre, "mensajes": mensajes})
 
         t0 = time.monotonic()
@@ -123,7 +135,7 @@ class Servicio:
                 resultado = veredicto_fallido(inc, "respuesta_invalida")
             else:
                 self.ledger.registrar("respuesta_llm", iid, {"crudo": crudo, "latencia_ms": round(latencia * 1000)})
-                resultado = validar_respuesta(parseada, inc, self.umbral_confianza)
+                resultado = validar_respuesta(parseada, inc, self.umbral_confianza, self.redes_protegidas)
 
         with self._lock:
             acciones = []

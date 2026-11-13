@@ -126,5 +126,35 @@ def test_campos_invalidos(webshell):
     assert "respuesta_invalida" in r["motivos_revision"]
 
 
+def test_no_se_bloquea_una_ip_de_red_protegida(webshell):
+    # 10.20.0.11 es el propio servidor web: bloquearlo cortaría el servicio. Para eso está aislar_host.
+    r = validar_respuesta(_resp(acciones_propuestas=[
+        {"tipo": "bloquear_ip", "objetivo": "10.20.0.11", "motivo": "x"},
+        {"tipo": "bloquear_ip", "objetivo": "10.99.0.66", "motivo": "x"},
+    ]), webshell, 0.6)
+    assert [a["objetivo"] for a in r["acciones"]] == ["10.99.0.66"]
+    assert "objetivo_protegido" in r["motivos_revision"]
+
+
+def test_redes_protegidas_configurables(webshell):
+    r = validar_respuesta(_resp(acciones_propuestas=[
+        {"tipo": "bloquear_ip", "objetivo": "10.99.0.66", "motivo": "x"},
+    ]), webshell, 0.6, redes_protegidas=("10.99.0.0/24",))
+    assert r["acciones"] == []
+
+
+def test_el_agente_no_cierra_solo_una_alerta_grave(webshell, benigno):
+    r = validar_respuesta(_resp(veredicto="benigno"), webshell, 0.6)
+    assert "descarte_de_alerta_grave" in r["motivos_revision"]
+    # Con severidad media sí puede descartarla.
+    r = validar_respuesta(_resp(veredicto="benigno", evidencia=["EVT-DEMO-0011"]), benigno, 0.6)
+    assert r["revision_humana"] is False
+
+
+def test_el_contexto_de_red_llega_al_modelo(webshell):
+    texto = construir_mensajes(webshell, "RED-DE-PRUEBA")[1]["content"]
+    assert "RED-DE-PRUEBA" in texto
+
+
 def test_confianza_fuera_de_rango_se_acota(webshell):
     assert validar_respuesta(_resp(confianza=7), webshell, 0.6)["confianza"] == 1.0
