@@ -20,7 +20,7 @@ Desde `demo/`:
 
 ```bash
 docker compose up -d --build   # levanta la red (la primera vez construye las imágenes)
-./red/verificar.sh             # 26 pruebas de rutas, conectividad y segmentación
+./red/verificar.sh             # 27 pruebas de rutas, conectividad y segmentación
 docker compose down            # la baja
 ```
 
@@ -166,3 +166,4 @@ todas las corridas.
 | `nodo/simular.py` | Escenarios de ataque y benignos (sin exploits) |
 | `../simular.sh` | Corre un escenario en el contenedor que corresponde |
 | `verificar.sh` | Corre todas las pruebas y muestra los contadores |
+| `../ingesta/` | La ingesta: recibe, valida, normaliza y guarda los eventos (ver su README) |

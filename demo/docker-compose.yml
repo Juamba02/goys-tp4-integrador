@@ -128,15 +128,30 @@ services:
       servicios: {ipv4_address: 10.20.0.13}
 
   # -------------------------------------------------------------------- SOC
-  # `ingesta` y `respondedor` son marcadores de lugar hasta que estén sus servicios.
+  # `respondedor` es un marcador de lugar hasta que esté su servicio.
   # El agente de triage (demo/agente) va en 10.30.0.20:8088.
   ingesta:
-    <<: *nodo
+    build: ./ingesta
+    image: minisoc/ingesta:dev
     container_name: ingesta
     hostname: ingesta
-    environment: {GATEWAY: 10.30.0.254, PUERTOS: "8081 22"}
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      GATEWAY: 10.30.0.254
+      SENSOR_TOKEN: ${SENSOR_TOKEN:-}
+      SENSORES: web-01=10.20.0.11,api-01=10.20.0.12,db-01=10.20.0.13
+    volumes:
+      - ingesta-datos:/datos
     networks:
       soc: {ipv4_address: 10.30.0.10}
+    restart: unless-stopped
+    depends_on:
+      router:
+        condition: service_healthy
 
   respondedor:
     <<: *nodo
@@ -171,3 +186,8 @@ networks:
   externo:
     driver_opts: *sin_nat
     ipam: {config: [{subnet: 10.99.0.0/24}]}
+
+volumes:
+  # Eventos de la ingesta (SQLite). Sobrevive a `docker compose down`;
+  # `docker compose down -v` lo borra.
+  ingesta-datos:
