@@ -10,8 +10,8 @@ Todo corre en Docker, en la notebook y sin Internet.
                          │                        │
    servicios 10.20.0.0/24│      iptables          │  soc 10.30.0.0/24
    ─ web-01 .11 ─────────┤ .254  (reglas.v4) .254 ├─────── ingesta .10, agente .20,
-     api-01 .12          │                        │        respondedor .30
-     db-01  .13          └────────────────────────┘
+     api-01 .12          │  contención :9000      │        respondedor .30, deteccion .40,
+     db-01  .13          └────────────────────────┘        analista .50
 ```
 
 ## Cómo usarla
@@ -19,8 +19,9 @@ Todo corre en Docker, en la notebook y sin Internet.
 Desde `demo/`:
 
 ```bash
-docker compose up -d --build   # levanta la red (la primera vez construye las imágenes)
-./red/verificar.sh             # 27 pruebas de rutas, conectividad y segmentación
+./preparar.sh                  # una sola vez: genera .env con tokens aleatorios
+docker compose up -d --build   # levanta todo (la primera vez construye las imágenes)
+./red/verificar.sh             # 31 pruebas de rutas, conectividad y segmentación
 docker compose down            # la baja
 ```
 
@@ -44,7 +45,8 @@ Tabla 1: tráfico permitido entre segmentos. Todo lo demás se descarta.
 
 - El SOC **no inicia conexiones** hacia otros segmentos. Para contener actúa sobre
   el propio router, con la cadena `MINISOC-CONTENCION`, que se evalúa antes que todo
-  lo demás y corta también las conexiones ya establecidas.
+  lo demás y corta también las conexiones ya establecidas. Solo el respondedor llega
+  al servicio de contención (`10.30.0.254:9000`). Ver [`../respondedor/`](../respondedor/README.md).
 - La cadena `MINISOC-DENEGADO` es la última. Sus contadores muestran cuánto tráfico
   frenó la segmentación y Prometheus los puede leer.
 - Las reglas usan subredes, no nombres de interfaz, porque Docker no garantiza en qué
@@ -168,3 +170,6 @@ todas las corridas.
 | `verificar.sh` | Corre todas las pruebas y muestra los contadores |
 | `../ingesta/` | La ingesta: recibe, valida, normaliza y guarda los eventos (ver su README) |
 | `../deteccion/` | Detección (reglas MITRE) y correlación de incidentes hacia el agente (ver su README) |
+| `router/contencion.py` | Servicio de contención: la única forma de que el SOC cambie la red |
+| `../respondedor/` | Aplica en el router las acciones que aprobó el analista (ver su README) |
+| `../preparar.sh`, `../revertir.sh` | Genera los tokens en `.env`; muestra o revierte contenciones |

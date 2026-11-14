@@ -23,5 +23,7 @@ ip -brief address | grep -v '^lo'
 ip route
 
 touch /run/minisoc-listo
-trap 'exit 0' TERM INT
-while :; do sleep 3600 & wait $!; done
+
+# El servicio de contención queda como proceso principal del router: es la única
+# forma de que el SOC (el respondedor) cambie la red. Ver contencion.py.
+exec python3 /usr/local/lib/minisoc/contencion.py

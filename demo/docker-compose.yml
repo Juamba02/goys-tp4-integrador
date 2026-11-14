@@ -57,6 +57,10 @@ services:
     sysctls:
       net.ipv4.ip_forward: "1"
       net.ipv4.conf.all.rp_filter: "1"
+    environment:
+      # Servicio de contención (10.30.0.254:9000): solo para el respondedor, con token.
+      CONTENCION_TOKEN: ${CONTENCION_TOKEN:-}
+      RESPONDEDOR_IP: 10.30.0.30
     volumes:
       - ./red/router/reglas.v4:/etc/minisoc/reglas.v4:ro
     networks:
@@ -128,8 +132,7 @@ services:
       servicios: {ipv4_address: 10.20.0.13}
 
   # -------------------------------------------------------------------- SOC
-  # `respondedor` es un marcador de lugar hasta que esté su servicio.
-  # El agente de triage (demo/agente) va en 10.30.0.20:8088.
+  # El agente de triage (demo/agente, PR #2) va en 10.30.0.20:8088.
   ingesta:
     build: ./ingesta
     image: minisoc/ingesta:dev
@@ -182,12 +185,39 @@ services:
         condition: service_healthy
 
   respondedor:
-    <<: *nodo
+    build: ./respondedor
+    image: minisoc/respondedor:dev
     container_name: respondedor
     hostname: respondedor
-    environment: {GATEWAY: 10.30.0.254, PUERTOS: "22"}
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      GATEWAY: 10.30.0.254
+      AGENTE_URL: http://10.30.0.20:8088
+      ROUTER_URL: http://10.30.0.254:9000
+      RESPONDEDOR_TOKEN: ${RESPONDEDOR_TOKEN:-}
+      CONTENCION_TOKEN: ${CONTENCION_TOKEN:-}
     networks:
       soc: {ipv4_address: 10.30.0.30}
+    restart: unless-stopped
+    depends_on:
+      router:
+        condition: service_healthy
+
+  # Consola del analista: desde acá se revisan incidentes y se aprueban acciones.
+  analista:
+    <<: *nodo
+    container_name: analista
+    hostname: analista
+    environment:
+      GATEWAY: 10.30.0.254
+      PUERTOS: "22"
+      ANALISTA_TOKEN: ${ANALISTA_TOKEN:-}
+    networks:
+      soc: {ipv4_address: 10.30.0.50}
 
   # ---------------------------------------------------------------- externo
   atacante:
