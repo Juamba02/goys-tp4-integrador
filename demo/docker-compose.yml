@@ -1,0 +1,151 @@
+# MiniSOC-IA: red del laboratorio.
+#
+# Cuatro segmentos unidos por un único router que aplica la política de firewall.
+# Ningún contenedor publica puertos en el host: todo se opera con `docker compose exec`.
+#
+# Sin salida a Internet, en tres capas:
+#   1. las redes no hacen NAT hacia afuera (enable_ip_masquerade: false);
+#   2. cada nodo usa al router como ruta por defecto, no al bridge de Docker;
+#   3. el router borra su propia ruta por defecto y solo conoce los 4 segmentos.
+# No se usan redes `internal`: Docker descarta en ellas los paquetes cuyo origen o
+# destino es de otra subred, y eso es justamente lo que hace un router.
+#
+#   gestion   10.10.0.0/24   administración (Ansible, espejo de paquetes)
+#   servicios 10.20.0.0/24   servicios monitoreados (web, api, db)
+#   soc       10.30.0.0/24   el propio SOC (ingesta, agente, respondedor)
+#   externo   10.99.0.0/24   "Internet" simulada: red NO confiable
+#
+# El router tiene la .254 en cada segmento. La .1 la reserva Docker para el bridge
+# del host, así que no se usa como gateway.
+
+name: minisoc
+
+x-nodo: &nodo
+  build: ./red/nodo
+  image: minisoc/nodo:dev
+  cap_drop: [ALL]
+  # NET_ADMIN solo para fijar la ruta por defecto al arrancar. El proceso del servicio
+  # corre después como usuario sin privilegios y no hereda la capability.
+  cap_add: [NET_ADMIN, SETUID, SETGID]
+  security_opt: ["no-new-privileges:true"]
+  # Deja que el usuario sin privilegios escuche en puertos bajos (22, 80) sin root.
+  sysctls:
+    net.ipv4.ip_unprivileged_port_start: "0"
+  read_only: true
+  tmpfs: [/tmp]
+  restart: unless-stopped
+  depends_on:
+    router:
+      condition: service_healthy
+
+services:
+  router:
+    build: ./red/router
+    image: minisoc/router:dev
+    container_name: router
+    hostname: router
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, NET_RAW]
+    security_opt: ["no-new-privileges:true"]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv4.conf.all.rp_filter: "1"
+    volumes:
+      - ./red/router/reglas.v4:/etc/minisoc/reglas.v4:ro
+    networks:
+      gestion:   {ipv4_address: 10.10.0.254}
+      servicios: {ipv4_address: 10.20.0.254}
+      soc:       {ipv4_address: 10.30.0.254}
+      externo:   {ipv4_address: 10.99.0.254}
+    healthcheck:
+      test: ["CMD", "test", "-f", "/run/minisoc-listo"]
+      interval: 2s
+      retries: 15
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- gestión
+  ansible:
+    <<: *nodo
+    container_name: ansible
+    hostname: ansible
+    environment: {GATEWAY: 10.10.0.254, PUERTOS: "22"}
+    networks:
+      gestion: {ipv4_address: 10.10.0.10}
+
+  espejo:
+    <<: *nodo
+    container_name: espejo
+    hostname: espejo
+    environment: {GATEWAY: 10.10.0.254, PUERTOS: "80"}
+    networks:
+      gestion: {ipv4_address: 10.10.0.5}
+
+  # -------------------------------------------------------------- servicios
+  web-01:
+    <<: *nodo
+    container_name: web-01
+    hostname: web-01
+    environment: {GATEWAY: 10.20.0.254, PUERTOS: "80 22"}
+    networks:
+      servicios: {ipv4_address: 10.20.0.11}
+
+  api-01:
+    <<: *nodo
+    container_name: api-01
+    hostname: api-01
+    environment: {GATEWAY: 10.20.0.254, PUERTOS: "3000 22"}
+    networks:
+      servicios: {ipv4_address: 10.20.0.12}
+
+  db-01:
+    <<: *nodo
+    container_name: db-01
+    hostname: db-01
+    environment: {GATEWAY: 10.20.0.254, PUERTOS: "5432 22"}
+    networks:
+      servicios: {ipv4_address: 10.20.0.13}
+
+  # -------------------------------------------------------------------- SOC
+  # `ingesta` y `respondedor` son marcadores de lugar hasta que estén sus servicios.
+  # El agente de triage (demo/agente) va en 10.30.0.20:8088.
+  ingesta:
+    <<: *nodo
+    container_name: ingesta
+    hostname: ingesta
+    environment: {GATEWAY: 10.30.0.254, PUERTOS: "8081 22"}
+    networks:
+      soc: {ipv4_address: 10.30.0.10}
+
+  respondedor:
+    <<: *nodo
+    container_name: respondedor
+    hostname: respondedor
+    environment: {GATEWAY: 10.30.0.254, PUERTOS: "22"}
+    networks:
+      soc: {ipv4_address: 10.30.0.30}
+
+  # ---------------------------------------------------------------- externo
+  atacante:
+    <<: *nodo
+    container_name: atacante
+    hostname: atacante
+    environment: {GATEWAY: 10.99.0.254, PUERTOS: "80"}
+    networks:
+      externo: {ipv4_address: 10.99.0.66}
+
+x-sin-nat: &sin_nat
+  com.docker.network.bridge.enable_ip_masquerade: "false"
+
+networks:
+  gestion:
+    driver_opts: *sin_nat
+    ipam: {config: [{subnet: 10.10.0.0/24}]}
+  servicios:
+    driver_opts: *sin_nat
+    ipam: {config: [{subnet: 10.20.0.0/24}]}
+  soc:
+    driver_opts: *sin_nat
+    ipam: {config: [{subnet: 10.30.0.0/24}]}
+  externo:
+    driver_opts: *sin_nat
+    ipam: {config: [{subnet: 10.99.0.0/24}]}
