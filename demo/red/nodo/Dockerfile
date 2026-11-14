@@ -6,10 +6,11 @@ FROM alpine:3.20
 RUN apk add --no-cache python3 iproute2 su-exec \
  && adduser -D -H -u 10001 nodo
 
-COPY escuchar.py probar.py sensor.py simular.py /usr/local/lib/minisoc/
+COPY escuchar.py probar.py sensor.py simular.py consola.py /usr/local/lib/minisoc/
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh /usr/local/lib/minisoc/*.py \
  && ln -s /usr/local/lib/minisoc/probar.py /usr/local/bin/probar \
- && ln -s /usr/local/lib/minisoc/simular.py /usr/local/bin/simular
+ && ln -s /usr/local/lib/minisoc/simular.py /usr/local/bin/simular \
+ && ln -s /usr/local/lib/minisoc/consola.py /usr/local/bin/consola
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
