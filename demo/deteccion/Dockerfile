@@ -12,6 +12,7 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
 
 ENV ALMACEN_RUTA=/datos/alertas.db \
+    INCIDENTES_RUTA=/datos/incidentes.db \
     REGLAS_RUTA=/app/reglas.json \
     PYTHONUNBUFFERED=1
 VOLUME ["/datos"]

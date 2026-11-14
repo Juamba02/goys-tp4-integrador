@@ -167,4 +167,4 @@ todas las corridas.
 | `../simular.sh` | Corre un escenario en el contenedor que corresponde |
 | `verificar.sh` | Corre todas las pruebas y muestra los contadores |
 | `../ingesta/` | La ingesta: recibe, valida, normaliza y guarda los eventos (ver su README) |
-| `../deteccion/` | La detección: reglas MITRE sobre los eventos (ver su README) |
+| `../deteccion/` | Detección (reglas MITRE) y correlación de incidentes hacia el agente (ver su README) |

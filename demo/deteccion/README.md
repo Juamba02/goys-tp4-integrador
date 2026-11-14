@@ -1,11 +1,13 @@
-# Detección
+# Detección y correlación
 
 Lee los eventos de la ingesta, los evalúa contra reglas mapeadas a MITRE ATT&CK y
-genera una alerta por cada regla que dispara. Corre en `10.30.0.40:8082`, en el
-segmento SOC. Solo usa la biblioteca estándar de Python.
+genera una alerta por cada regla que dispara. Después la **correlación** agrupa las
+alertas de cada host en un incidente y se lo manda al agente de triage. Corre en
+`10.30.0.40:8082`, en el segmento SOC. Solo usa la biblioteca estándar de Python.
 
 ```
-ingesta ──GET /v1/eventos?desde=N──▶ detección ──▶ alertas (SQLite) ──▶ correlación ──▶ agente
+ingesta ──GET /v1/eventos?desde=N──▶ detección ──▶ alertas ──▶ correlación ──POST /incidentes──▶ agente
+                                                   (SQLite)    (SQLite)
 ```
 
 ## Reglas
@@ -77,7 +79,7 @@ telemetría. Si alguien agrega una regla que no se puede probar con los escenari
 el test falla.
 
 ```bash
-cd demo/deteccion && python -m pytest -q    # 24 tests, sin Docker
+cd demo/deteccion && python -m pytest -q    # 34 tests (detección y correlación), sin Docker
 ```
 
 ## Cómo funciona
@@ -92,17 +94,68 @@ cd demo/deteccion && python -m pytest -q    # 24 tests, sin Docker
   `regla_id`, `tecnica`, `severidad`, `descripcion`, `eventos`) y una copia del evento,
   para que la correlación arme el incidente sin volver a consultar la ingesta.
 
+## Correlación
+
+Corre en el mismo servicio, en un hilo propio. El agente responde de forma
+sincrónica y puede tardar hasta 120 s, así que esa espera no frena la detección.
+
+```
+abierto ──(20 s sin alertas nuevas del host, o 5 min de duración)──▶ pendiente
+pendiente ──POST /incidentes──▶ enviado     (201 nuevo, 200 ya analizado)
+                           └──▶ rechazado   (409 o 422: reintentar no lo cambia)
+                           └──▶ pendiente   (sin respuesta, 401/403 o 5xx: se reintenta con espera creciente)
+```
+
+- **Un incidente por host.** Cada alerta nueva se suma al incidente abierto de su host.
+  Cuando el host pasa `CORRELACION_INACTIVIDAD` segundos sin alertas, el incidente se
+  cierra. Son 20 s por defecto, para que la demo no espere de más.
+- **Se manda una sola vez, ya cerrado,** como se acordó en la revisión del contrato
+  (PR #2). Una alerta que llega después abre un incidente nuevo.
+- **Los reintentos mandan exactamente el mismo contenido,** así el agente los reconoce
+  como reintentos (`200`) y no como un incidente distinto.
+- **Contexto para el agente.** Además de los eventos que dispararon alertas, el
+  incidente incluye los eventos del mismo host alrededor de esos ids (hasta 40). Así el
+  agente ve, por ejemplo, la conexión establecida al espejo que acompaña a una descarga
+  benigna. Si la ingesta no responde, van solo los eventos citados.
+- **IDs que no chocan:** `INC-<prefijo>-000001`. El prefijo se genera una vez por
+  instalación. Si se borra el almacén de incidentes pero el ledger del agente sigue, un
+  incidente nuevo no se confunde con uno viejo.
+- **El incidente no lleva `etiqueta_esperada`.** La correlación no sabe qué es un
+  ataque y qué no. La etiqueta es solo para evaluar el agente con incidentes de ejemplo.
+
+**Probado contra el agente real de Joaquín** (rama `agente-ia-ledger`, modelo
+simulado), conectado a la red del laboratorio en `10.30.0.20`:
+
+Tabla 3: incidentes enviados al agente en la prueba en vivo.
+
+| Escenario | Incidente | Veredicto del agente |
+|-----------|-----------|----------------------|
+| `webshell` | 8 alertas de web-01 | malicioso. Cita como evidencia los 5 eventos del ataque y propone `bloquear_ip 10.99.0.66` (pendiente de aprobación) |
+| `firmas` | 1 alerta baja de db-01 | benigno, confianza 0.7, sin revisión humana |
+
+Desde que arranca el ataque hasta que llega el veredicto pasan unos 25 s, casi todos
+por la ventana de inactividad. Además, el agente aceptó todos los incidentes sin
+ningún `422`, y un reinicio de la detección no le reenvió nada: tenía 5 incidentes
+antes y 5 después.
+
 ## API
 
 | Método y ruta | Quién | Qué hace |
 |---|---|---|
 | `GET /v1/alertas?desde=N&host=` | solo el SOC | Alertas con id mayor que N |
 | `GET /v1/reglas` | solo el SOC | Reglas cargadas |
+| `GET /v1/incidentes?desde=N` | solo el SOC | Incidentes, su estado y la respuesta del agente |
 | `GET /metrics` | gestión y SOC | `minisoc_deteccion_alertas_total{regla,tecnica,severidad}`, eventos evaluados, errores de lectura, reglas cargadas |
 | `GET /salud` | cualquiera | Reglas, alertas y cursor |
 
 ## Limitaciones
 
+- **Un incidente por host.** El movimiento lateral de web-01 a db-01 genera dos
+  incidentes separados, uno en cada host. Unirlos necesitaría correlación entre hosts
+  (por ejemplo, por la IP de la conexión), y el contrato del agente hoy es de un host
+  por incidente.
+- **La ventana es por inactividad.** Un atacante que genere una alerta cada 19 s
+  mantiene el incidente abierto hasta el tope de 5 minutos.
 - **Reglas de un solo evento.** No hay reglas de secuencia del tipo "shell y, en
   menos de 10 segundos, conexión a Internet". Esa relación la arma la correlación,
   que agrupa por host y ventana de tiempo.

@@ -166,6 +166,10 @@ services:
     environment:
       GATEWAY: 10.30.0.254
       INGESTA_URL: http://10.30.0.10:8081
+      # Correlación: cada incidente cerrado va al agente de triage (demo/agente).
+      AGENTE_URL: http://10.30.0.20:8088
+      INGESTA_TOKEN: ${INGESTA_TOKEN:-}
+      CORRELACION_INACTIVIDAD: ${CORRELACION_INACTIVIDAD:-20}
     volumes:
       - deteccion-datos:/datos
       # Las reglas se pueden editar sin reconstruir la imagen (reiniciar el servicio).

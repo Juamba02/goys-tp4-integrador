@@ -4,6 +4,7 @@
 |--------------------------------|-----------------|----------|
 | GET /v1/alertas?desde=N&host=  | solo el SOC     | Alertas con id mayor que N |
 | GET /v1/reglas                 | solo el SOC     | Reglas cargadas |
+| GET /v1/incidentes?desde=N     | solo el SOC     | Incidentes de la correlación y su veredicto |
 | GET /metrics                   | gestión y SOC   | Métricas para Prometheus |
 | GET /salud                     | cualquiera      | Estado del servicio |
 """
@@ -23,7 +24,8 @@ log = logging.getLogger("minisoc_deteccion")
 
 def crear_servidor(detector: Detector, host: str, puerto: int,
                    redes_lectura: tuple[str, ...] = ("10.30.0.0/24",),
-                   redes_metricas: tuple[str, ...] = ("10.10.0.0/24", "10.30.0.0/24")) -> ThreadingHTTPServer:
+                   redes_metricas: tuple[str, ...] = ("10.10.0.0/24", "10.30.0.0/24"),
+                   correlador: Any = None) -> ThreadingHTTPServer:
     lectura = [ipaddress.ip_network(r) for r in redes_lectura]
     metricas = [ipaddress.ip_network(r) for r in redes_metricas]
 
@@ -59,8 +61,9 @@ def crear_servidor(detector: Detector, host: str, puerto: int,
                 if url.path == "/metrics":
                     if not permitido(ip, metricas):
                         return self._responder(403, {"error": "métricas solo desde gestión o el SOC"})
-                    return self._responder(200, detector.metricas(), "text/plain; version=0.0.4")
-                if url.path in ("/v1/alertas", "/v1/reglas") and not permitido(ip, lectura):
+                    texto = detector.metricas() + (correlador.metricas() if correlador else "")
+                    return self._responder(200, texto, "text/plain; version=0.0.4")
+                if url.path in ("/v1/alertas", "/v1/reglas", "/v1/incidentes") and not permitido(ip, lectura):
                     return self._responder(403, {"error": "solo desde el SOC"})
                 if url.path == "/v1/alertas":
                     try:
@@ -69,6 +72,17 @@ def crear_servidor(detector: Detector, host: str, puerto: int,
                         return self._responder(400, {"error": "'desde' y 'limite' deben ser enteros"})
                     alertas, ultimo = detector.almacen.leer(desde, limite, q.get("host", [None])[0])
                     return self._responder(200, {"alertas": alertas, "ultimo": ultimo})
+                if url.path == "/v1/incidentes":
+                    if correlador is None:
+                        return self._responder(404, {"error": "la correlación está desactivada"})
+                    try:
+                        desde = int(q.get("desde", ["0"])[0])
+                    except ValueError:
+                        return self._responder(400, {"error": "'desde' debe ser entero"})
+                    incidentes = correlador.incidentes.listar(desde)
+                    for i in incidentes:
+                        i["incidente_id"] = i["incidente_id"].replace("INC-", f"INC-{correlador.prefijo}-")
+                    return self._responder(200, incidentes)
                 if url.path == "/v1/reglas":
                     return self._responder(200, [{"id": r.id, "tecnica": r.tecnica, "tactica": r.tactica,
                                                   "severidad": r.severidad, "descripcion": r.descripcion,
