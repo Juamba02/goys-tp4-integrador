@@ -38,6 +38,13 @@ x-nodo: &nodo
     router:
       condition: service_healthy
 
+x-sensor: &sensor
+  SENSOR: "1"
+  INGESTA_URL: http://10.30.0.10:8081/v1/eventos
+  SENSOR_TOKEN: ${SENSOR_TOKEN:-}
+  # SENSOR_DEBUG=1 imprime cada evento en los logs del contenedor.
+  SENSOR_DEBUG: ${SENSOR_DEBUG:-1}
+
 services:
   router:
     build: ./red/router
@@ -76,16 +83,23 @@ services:
     <<: *nodo
     container_name: espejo
     hostname: espejo
-    environment: {GATEWAY: 10.10.0.254, PUERTOS: "80"}
+    # DEMORA: cada respuesta tarda 1,5 s, como una descarga real.
+    environment: {GATEWAY: 10.10.0.254, PUERTOS: "80", DEMORA: "1.5"}
     networks:
       gestion: {ipv4_address: 10.10.0.5}
 
   # -------------------------------------------------------------- servicios
+  # Los servicios monitoreados corren el sensor (SENSOR=1), que manda procesos y
+  # conexiones a la ingesta. PROCESO es el nombre con el que se ve el servicio.
   web-01:
     <<: *nodo
     container_name: web-01
     hostname: web-01
-    environment: {GATEWAY: 10.20.0.254, PUERTOS: "80 22"}
+    environment:
+      <<: *sensor
+      GATEWAY: 10.20.0.254
+      PUERTOS: "80 22"
+      PROCESO: php-fpm
     networks:
       servicios: {ipv4_address: 10.20.0.11}
 
@@ -93,7 +107,11 @@ services:
     <<: *nodo
     container_name: api-01
     hostname: api-01
-    environment: {GATEWAY: 10.20.0.254, PUERTOS: "3000 22"}
+    environment:
+      <<: *sensor
+      GATEWAY: 10.20.0.254
+      PUERTOS: "3000 22"
+      PROCESO: node
     networks:
       servicios: {ipv4_address: 10.20.0.12}
 
@@ -101,7 +119,11 @@ services:
     <<: *nodo
     container_name: db-01
     hostname: db-01
-    environment: {GATEWAY: 10.20.0.254, PUERTOS: "5432 22"}
+    environment:
+      <<: *sensor
+      GATEWAY: 10.20.0.254
+      PUERTOS: "5432 22"
+      PROCESO: postgres
     networks:
       servicios: {ipv4_address: 10.20.0.13}
 
