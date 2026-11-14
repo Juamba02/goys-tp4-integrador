@@ -148,21 +148,40 @@ conclusiones.
 
 ### 2.1. Diagrama de red
 
-[Pendiente]
+![Topología del laboratorio: cuatro segmentos unidos por un router con firewall](../diagramas/red-minisoc.svg)
+
+*Figura 1: Topología del laboratorio. Todo el tráfico entre segmentos pasa por el router.*
+
+Cada segmento es una red de Docker. El SOC no inicia conexiones: para contener un
+ataque, actúa sobre el router.
 
 ### 2.2. Componentes
 
-[Pendiente: filas de red, ingesta, detección, automatización y monitoreo]
+[Pendiente: filas de automatización y monitoreo]
 
 | Componente | Tecnología | Función |
 |------------|------------|---------|
+| Router y firewall | Alpine Linux + iptables | Une los cuatro segmentos, descarta todo lo no permitido y aplica la contención |
+| Sensor | Python 3, lectura de `/proc` | En cada servicio, reporta procesos y conexiones TCP nuevos, sin privilegios |
+| Ingesta | Python 3 + SQLite | Valida, normaliza y guarda la telemetría; exige que cada sensor envíe desde su IP |
+| Detección y correlación | Python 3 + SQLite, reglas en JSON | 9 reglas MITRE ATT&CK; agrupa las alertas por host en incidentes y los manda al agente |
+| Respondedor | Python 3 | Aplica en el router las acciones aprobadas y avisa al agente |
+| Simulador | Python 3 | Genera la telemetría de tres ataques y dos tareas normales, sin exploits |
 | Agente de triage | Python 3 (biblioteca estándar) | Consulta al modelo, valida su respuesta y deja las acciones para que el analista las apruebe |
 | Modelo de lenguaje | Ollama + Llama 3.1 8B local (3B sin GPU) | Propone veredicto, justificación y acciones; no tiene acceso a la red |
 | Ledger | JSONL con hash encadenado (HMAC) | Registro auditable de cada paso del agente y de cada decisión humana |
 
 ### 2.3. Flujo de datos
 
-[Pendiente: recorrido desde el servicio monitoreado hasta el incidente correlacionado]
+1. El **sensor** de `web-01` ve que `php-fpm` lanzó `sh -c id` y lo manda a la
+   ingesta (`:8081`), el único tráfico permitido de servicios al SOC.
+2. La **ingesta** verifica que el lote venga de la IP de `web-01`, normaliza el evento
+   y le asigna un identificador (`EVT-000067`).
+3. La **detección** lo compara con las reglas: dispara `T1059` (un servicio lanzó un
+   shell) y `T1082` (reconocimiento).
+4. La **correlación** suma las alertas al incidente de `web-01`. Cuando el host pasa
+   20 s sin alertas nuevas, lo cierra y lo manda al agente, con eventos de contexto
+   hasta un tamaño que entre en la ventana del modelo.
 
 El incidente correlacionado llega al agente por HTTP (`POST /incidentes`). El
 agente le pide un veredicto al modelo local, valida la respuesta contra el
@@ -172,15 +191,61 @@ del agente van a Prometheus.
 
 ## 3. Implementación
 
-[Pendiente: 3.1 Configuración de red · 3.2 Container networking · 3.3 Automatización · 3.4 Monitoreo]
+### 3.1. Configuración de red
+
+El router descarta todo por defecto (`reglas.v4`). Las reglas usan subredes y no
+interfaces, porque Docker no garantiza el orden de las interfaces.
+
+Tabla 1: Tráfico permitido entre segmentos (todo lo demás se descarta)
+
+| Origen | Destino | Permitido |
+|--------|---------|-----------|
+| gestión | servicios y SOC | SSH (22) e ICMP |
+| servicios | espejo `10.10.0.5` · ingesta `10.30.0.10` | HTTP (80) · telemetría (8081) |
+| externo | `web-01` `10.20.0.11` | HTTP (80), el único servicio publicado |
+| respondedor `10.30.0.30` | router `10.30.0.254` | contención (9000) |
+| SOC | otros segmentos | nada: no inicia conexiones |
+
+```bash
+-A FORWARD -j MINISOC-CONTENCION      # bloqueos del respondedor, antes que todo
+-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A FORWARD -m conntrack --ctstate NEW -j MINISOC-PERMITIDO
+-A FORWARD -j MINISOC-DENEGADO        # contadores de lo descartado
+```
+
+**Sin salida a Internet.** No usamos las redes `internal` de Docker, porque descartan
+los paquetes de otras subredes, que es justo lo que enruta un router. En su lugar:
+las redes no hacen NAT, cada nodo sale por el router y el router no tiene ruta por
+defecto. Además, una ruta `prohibit` impide llegar al host por el *bridge* de Docker.
+
+### 3.2. Container networking
+
+Los contenedores descartan todas las capacidades (`cap_drop: ALL`) y suman solo las
+que necesitan para arrancar: `NET_ADMIN` para fijar la ruta y `SETUID`/`SETGID` para
+pasar a un usuario sin privilegios, que ya no puede cambiarla. Corren con
+`no-new-privileges`, el sistema de archivos de solo lectura y sin puertos publicados.
+
+**Telemetría.** El sensor muestrea `/proc` y también reporta las conexiones que el
+router bloquea: un intento frenado es evidencia. Los servicios pueden mandar
+telemetría, pero no leerla, así que un host comprometido no puede ver qué sabe el SOC.
+
+**Contención.** El respondedor no toca el router directamente. El router expone un
+servicio que solo atiende a la IP del respondedor, con token, y que traduce dos
+acciones a reglas fijas, sin pasar por un shell. `bloquear_ip` descarta el tráfico
+desde y hacia una IP. `aislar_host` corta todo el tráfico del host, salvo el SSH desde
+gestión y la telemetría. Este servicio rechaza actuar sobre redes internas o sobre el
+SOC, aunque el pedido venga autenticado, y cada regla lleva el identificador de la
+acción, para revertirla con exactitud.
+
+[Pendiente: 3.3 Automatización · 3.4 Monitoreo]
 
 ### 3.5. Agente de IA y ledger
 
 El modelo se trata como una fuente que puede equivocarse o ser manipulada: el
 agente no ejecuta lo que dice, sino que lo contrasta con el incidente. Si algo no
-cierra, el incidente va a revisión humana (Tabla 1).
+cierra, el incidente va a revisión humana (Tabla 2).
 
-Tabla 1: Controles sobre la respuesta del modelo
+Tabla 2: Controles sobre la respuesta del modelo
 
 | Riesgo | Control |
 |--------|---------|
@@ -204,11 +269,39 @@ antes del veredicto. Un modelo simulado sirve para los tests y como plan B.
 
 ## 4. Verificación
 
-[Pendiente: 4.1 Conectividad · 4.2 Segmentación · 4.3 Automatización]
+### 4.1. Pruebas de conectividad
+
+`red/verificar.sh` corre 31 pruebas desde los contenedores. Cada una distingue entre
+*abierto*, *rechazado* (llegó, pero el puerto está cerrado) y *bloqueado* (lo descartó
+el router). Las 31 pasan: cada nodo sale por la .254 de su segmento, y los flujos de
+la Tabla 1 llegan a destino.
+
+### 4.2. Pruebas de segmentación
+
+Tabla 3: Segmentación y contención, probadas en el laboratorio
+
+| Desde | Hacia | Esperado | Resultado |
+|-------|-------|----------|-----------|
+| `web-01` | gestión (SSH) · SOC (SSH) | bloqueado | ✔ |
+| `web-01` | `1.1.1.1:443` · bridge de Docker (.1) | bloqueado | ✔ |
+| atacante | `api-01:3000` · gestión · SOC | bloqueado | ✔ |
+| SOC | servicios · gestión · Internet | bloqueado | ✔ |
+| `web-01` · `analista` | contención del router (9000) | bloqueado | ✔ |
+| `web-01` comprometido | mandar eventos como `db-01` | rechazado (403) | ✔ |
+| atacante → `web-01:80`, tras aprobar `bloquear_ip` | — | bloqueado; `web-01` → espejo sigue abierto | ✔ |
+| atacante, tras aislar `web-01` | — | bloqueado; el SSH desde gestión sigue abierto y la telemetría sigue llegando | ✔ |
+
+Las reglas se probaron contra la telemetría real de los cinco escenarios: cada regla
+dispara al menos una vez, y los dos escenarios normales solo disparan la de severidad
+baja. De punta a punta (`demo.sh`), el veredicto llega unos 30 s después del ataque
+(20 s son la espera de la correlación) y el bloqueo aprobado se aplica en menos de 2 s.
+La red, la ingesta, la detección y la respuesta suman 102 pruebas automáticas.
+
+[Pendiente: 4.3 Automatización]
 
 ### 4.4. Pruebas del agente y del ledger
 
-Las 66 pruebas automáticas del agente pasan. Cubren los controles de la Tabla 1,
+Las 66 pruebas automáticas del agente pasan. Cubren los controles de la Tabla 2,
 los tokens (aprobar sin token o ejecutar una acción no aprobada se rechaza) y el
 ledger (editar, borrar o cortar una línea hace fallar la verificación, y al
 reiniciar el estado se reconstruye).
@@ -224,7 +317,15 @@ Ningún modelo resistió la inyección de prompt: la frenaron los controles.
 
 ## 5. Limitaciones y trabajo futuro
 
-[Pendiente: limitaciones de red, detección, automatización y monitoreo]
+- **Red:** dentro de un segmento no hay filtrado, así que `aislar_host` no corta el
+  tráfico con los vecinos. Haría falta microsegmentación (por ejemplo, Cilium). Si el
+  router se reinicia, se pierden las contenciones activas.
+- **Sensor:** trabaja por muestreo cada 50 ms, así que un proceso más corto puede no
+  verse. Un sensor eBPF (Falco) lo resolvería, pero necesita privilegios sobre el kernel.
+- **Correlación:** agrupa por host, así que un movimiento lateral queda partido en dos
+  incidentes.
+
+[Pendiente: limitaciones de automatización y monitoreo]
 
 - **Agente:** los modelos chicos se equivocan seguido (50 % en los incidentes de
   control) y declaran confianza alta igual. Los controles evitan el daño, pero
