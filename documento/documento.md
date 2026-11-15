@@ -157,7 +157,7 @@ conclusiones.
 | Componente | Tecnología | Función |
 |------------|------------|---------|
 | Agente de triage | Python 3 (biblioteca estándar) | Recibe el incidente, consulta al modelo, valida la respuesta y emite el veredicto |
-| Modelo de lenguaje | Ollama + Llama 3.2 3B o Llama 3.1 8B (local) | Propone veredicto, confianza, justificación y acciones; no tiene acceso a la red |
+| Modelo de lenguaje | Ollama + Llama 3.1 8B (local); Llama 3.2 3B como alternativa sin GPU | Propone veredicto, confianza, justificación y acciones; no tiene acceso a la red |
 | Ledger | Archivo JSONL con hash encadenado (SHA-256 / HMAC-SHA-256) | Registro auditable e inalterable de cada paso del agente y de cada decisión humana |
 | Consola del analista | CLI `minisoc-agente` + API HTTP | Revisar acciones pendientes y aprobarlas o rechazarlas |
 
@@ -203,7 +203,7 @@ Tabla 1: Controles sobre la respuesta del modelo
 |--------|---------|--------------|
 | Cita eventos inexistentes | Cada ID de evidencia se busca en el incidente | Se descarta; revisión humana |
 | Actúa sobre algo ajeno | El host debe ser el del incidente y la IP debe figurar como valor en un evento | Se descarta la acción; revisión humana |
-| Bloquea una IP propia | `bloquear_ip` no se acepta sobre los segmentos de la red; un host interno se aísla | Se descarta la acción; revisión humana |
+| Bloquea una IP propia o aísla infraestructura | `bloquear_ip` no se acepta sobre los segmentos de la red ni `aislar_host` sobre el router, Ansible o los componentes del SOC | Se descarta la acción; revisión humana |
 | Descarta un ataque real | Un veredicto benigno sobre alertas altas o críticas no se cierra solo | Revisión humana |
 | Inventa acciones | Lista cerrada: `aislar_host` y `bloquear_ip`, cada una con su reversión | Se descarta; revisión humana |
 | Inyección de prompt en logs | Eventos delimitados como datos y controles anteriores | La acción inyectada no supera la validación |
@@ -214,7 +214,9 @@ Tabla 1: Controles sobre la respuesta del modelo
 ejecutada` (o `rechazada` / `fallida`). Aprobar requiere el token del analista y
 marcar como ejecutada requiere otro token, el del respondedor de red, de modo que
 ningún componente puede completar el ciclo solo. Cada aprobación registra quién
-la tomó.
+la tomó. Enviar incidentes también requiere un token, el de la ingesta, y en la
+red el agente solo es alcanzable desde el segmento del SOC: nadie de afuera puede
+inyectar un incidente armado para que se proponga bloquear una IP a su elección.
 
 **Ledger.** Cada entrada guarda su número de secuencia, la fecha, el tipo, los
 datos y el hash de la entrada anterior. El hash propio se calcula sobre todo lo
@@ -311,7 +313,9 @@ veredicto, aprobación, ejecución y verificación del ledger.
   evitan que un error llegue a la red o cierre un incidente grave, pero el costo
   es que la mitad de los incidentes termina en manos de un analista. La
   evaluación usa pocos incidentes sintéticos escritos por la misma persona que el
-  prompt. Si la demo corre en una máquina con GPU conviene el modelo de 8B.
+  prompt. Por eso se adoptó el modelo de 8B, que en la notebook de la demo
+  (GTX 1660 Ti, 6 GB) entra justo en la memoria de video; si resulta lento, el de
+  3B queda como alternativa.
 - **Ledger:** sin clave, quien tenga acceso al archivo puede reescribir la cadena
   completa. Con clave, hace falta protegerla. Como mejora, publicar
   periódicamente el último hash fuera del SOC (por ejemplo, en el repositorio o en
@@ -320,6 +324,9 @@ veredicto, aprobación, ejecución y verificación del ledger.
   individuales ni separación entre quien propone y quien aprueba más allá de que
   el agente no puede aprobar. Trabajo futuro: autenticación por analista y mTLS
   entre componentes.
+- **Reversión:** cada acción trae su reversión, pero en esta versión la ejecuta el
+  respondedor a mano y no queda en el ledger. Trabajo futuro: una operación
+  "revertir" auditada como las demás.
 
 ## 6. Conclusiones
 
