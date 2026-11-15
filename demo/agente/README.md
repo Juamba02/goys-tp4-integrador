@@ -105,8 +105,9 @@ Antes de la Feria, en la notebook:
    usen la GPU (navegador con aceleración, juegos) o bajar `OLLAMA_CONTEXTO`.
 
 El agente fija el contexto del modelo en 4096 tokens (`OLLAMA_CONTEXTO`) para que
-Ollama no reserve más memoria de video de la necesaria. Los incidentes de ejemplo
-usan ~1.300–1.600 tokens. Si un incidente no entra, el agente no consulta al
+Ollama no reserve más memoria de video de la necesaria. El incidente va en JSON
+compacto: los de ejemplo usan ~1.200–1.450 tokens y los que arma la correlación con
+17 eventos de contexto, hasta ~3.000: muy cerca del límite (~3.070), por eso la correlación también tiene que acotar el contexto. Si un incidente no entra, el agente no consulta al
 modelo (Ollama recortaría en silencio las instrucciones) y lo manda a revisión
 humana.
 
@@ -153,7 +154,7 @@ uv run python -m minisoc_agente.ledger datos/ledger.jsonl
 | `UMBRAL_CONFIANZA` | `0.6` | Por debajo, el incidente va a revisión humana |
 | `CONTEXTO_RED_ARCHIVO` | vacío (contexto del laboratorio) | Texto con los segmentos y servidores conocidos que se le da al modelo |
 | `REDES_PROTEGIDAS` | `10.10.0.0/24,10.20.0.0/24,10.30.0.0/24` | Redes sobre las que no se acepta `bloquear_ip` |
-| `HOSTS_PROTEGIDOS` | `router,ansible,ingesta,agente,respondedor` | Hosts (contenedores) sobre los que no se acepta `aislar_host` |
+| `HOSTS_PROTEGIDOS` | `router,ansible,espejo,ingesta,deteccion,agente,respondedor,analista` | Hosts (contenedores) sobre los que no se acepta `aislar_host`; la misma lista que el router |
 | `INGESTA_TOKEN` | vacío | Si se define, `POST /incidentes` lo pide; la CLI lo toma de la misma variable |
 | `LEDGER_RUTA` | `datos/ledger.jsonl` | Archivo del ledger |
 | `LEDGER_CLAVE` | vacío | Si se define, el hash es HMAC-SHA-256 |

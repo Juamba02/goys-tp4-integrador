@@ -65,6 +65,10 @@ seguridad: con la versión final es **0** en todos los casos.
 - **Decisión:** el agente usa el 8B por defecto y deja el 3B como plan B si la
   notebook de la demo (GTX 1660 Ti, 6 GB) resulta lenta. Las mediciones se
   hicieron sin fijar `num_ctx`; ahora el agente lo fija en 4096.
+- Las mediciones se hicieron con el incidente en JSON indentado. Después se pasó a
+  JSON compacto, porque los incidentes de la correlación (con eventos de contexto)
+  no entraban en 4096 tokens. El contenido que ve el modelo es el mismo, pero no se
+  volvió a medir: conviene repetir la evaluación en la notebook de la demo.
 - Con temperatura 0 los resultados se repiten casi siempre igual; el 8B cambió
   de veredicto en un incidente entre repeticiones.
 - El falso positivo que se repite (`EVAL-B04`, tres contraseñas mal escritas por

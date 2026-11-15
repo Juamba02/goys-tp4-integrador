@@ -175,3 +175,21 @@ def test_no_se_aisla_un_host_protegido(webshell):
         {"tipo": "aislar_host", "objetivo": "ansible", "motivo": "x"},
     ]), inc, 0.6, hosts_protegidos=("router",))
     assert [a["objetivo"] for a in r["acciones"]] == ["ansible"]
+
+
+def test_el_incidente_va_en_json_compacto(webshell):
+    import json
+
+    texto = construir_mensajes(webshell)[1]["content"]
+    bloque = texto.split("<<<INCIDENTE\n", 1)[1].rsplit("\nINCIDENTE>>>", 1)[0]
+    assert "\n" not in bloque and ", " not in bloque.split('"cmdline"')[0]
+    sin_etiqueta = {k: v for k, v in webshell.items() if k != "etiqueta_esperada"}
+    assert json.loads(bloque) == sin_etiqueta
+
+
+def test_hosts_protegidos_iguales_a_los_del_router():
+    from minisoc_agente.triage import HOSTS_PROTEGIDOS_POR_DEFECTO
+
+    # Copia de HOSTS_PROTEGIDOS en demo/red/router/contencion.py (PR #4).
+    router = {"router", "ansible", "espejo", "ingesta", "deteccion", "agente", "respondedor", "analista"}
+    assert set(HOSTS_PROTEGIDOS_POR_DEFECTO) == router

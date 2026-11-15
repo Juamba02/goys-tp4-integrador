@@ -66,7 +66,7 @@ class Ollama:
         self.mantener = mantener  # cuánto queda el modelo cargado en memoria entre consultas
         # Tamaño de contexto fijo: si se deja libre, Ollama puede reservar más memoria de
         # video de la que hay en una placa de 6 GB y mandar parte del modelo a la CPU.
-        # 4096 tokens alcanza: prompt + incidente de los ejemplos rondan los 1.300-1.600.
+        # 4096 tokens alcanza: prompt + incidente de los ejemplos rondan los 1.200-1.450 tokens; los de la correlación, hasta ~3.000 (muy cerca del límite de ~3.070).
         self.contexto = contexto
         self.nombre = f"ollama/{modelo}"
 

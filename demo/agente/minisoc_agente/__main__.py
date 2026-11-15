@@ -16,7 +16,7 @@ Configuración por variables de entorno:
 | REDES_PROTEGIDAS    | 10.10.0.0/24,10.20.0.0/24,10.30.0.0/24 |
 | LEDGER_RUTA         | datos/ledger.jsonl        |
 | LEDGER_CLAVE        | (vacío: SHA-256 sin clave)|
-| HOSTS_PROTEGIDOS    | router,ansible,ingesta,agente,respondedor |
+| HOSTS_PROTEGIDOS    | router,ansible,espejo,ingesta,deteccion,agente,respondedor,analista |
 | INGESTA_TOKEN       | (vacío: no se pide para enviar incidentes) |
 | ANALISTA_TOKEN      | (vacío: aprobar deshabilitado) |
 | RESPONDEDOR_TOKEN   | (vacío: ejecutar deshabilitado) |

@@ -147,8 +147,9 @@ un timeout mayor (la ingesta usa 150 s).
 Cualquier otro tipo, un objetivo que no figura en el incidente, una IP de las
 redes protegidas (por defecto `10.10.0.0/24`, `10.20.0.0/24` y `10.30.0.0/24`;
 variable `REDES_PROTEGIDAS`) o un host protegido (por defecto `router`, `ansible`,
-`ingesta`, `agente` y `respondedor`; variable `HOSTS_PROTEGIDOS`) se descarta y el
-incidente pasa a revisión humana. Un host interno comprometido se aísla, no se
+`espejo`, `ingesta`, `deteccion`, `agente`, `respondedor` y `analista`, la misma lista
+que el servicio de contención del router; variable `HOSTS_PROTEGIDOS`) se descarta y
+el incidente pasa a revisión humana. Un host interno comprometido se aísla, no se
 bloquea su IP.
 
 ---
