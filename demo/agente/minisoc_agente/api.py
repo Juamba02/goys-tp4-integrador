@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .servicio import AccionNoEncontrada, Servicio, TransicionInvalida
+from .servicio import AccionNoEncontrada, IncidenteModificado, Servicio, TransicionInvalida
 from .triage import IncidenteInvalido
 
 log = logging.getLogger("minisoc_agente")
@@ -26,7 +26,8 @@ class ErrorHTTP(Exception):
         self.codigo = codigo
 
 
-def crear_servidor(servicio: Servicio, host: str, puerto: int, token_analista: str, token_respondedor: str) -> ThreadingHTTPServer:
+def crear_servidor(servicio: Servicio, host: str, puerto: int, token_analista: str, token_respondedor: str,
+                   token_ingesta: str = "") -> ThreadingHTTPServer:
     class Manejador(BaseHTTPRequestHandler):
         server_version = "minisoc-agente/0.1"
 
@@ -106,10 +107,15 @@ def crear_servidor(servicio: Servicio, host: str, puerto: int, token_analista: s
 
             if metodo == "POST":
                 if ruta == "/incidentes":
+                    # Sin INGESTA_TOKEN no se pide (demo rápida y tests); el arranque lo avisa.
+                    if token_ingesta:
+                        self._autorizar(token_ingesta)
                     try:
                         veredicto, nuevo = servicio.procesar_incidente(self._leer_json())
                     except IncidenteInvalido as e:
                         raise ErrorHTTP(422, f"incidente inválido: {e}") from None
+                    except IncidenteModificado as e:
+                        raise ErrorHTTP(409, str(e)) from None
                     return (201 if nuevo else 200), veredicto
                 if (m := RUTA_ACCION.match(ruta)) and m.group(2):
                     return 200, self._transicion(m.group(1), m.group(2))

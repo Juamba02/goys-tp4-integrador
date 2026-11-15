@@ -171,6 +171,10 @@ def objetivos_validos(inc: dict[str, Any]) -> dict[str, set[str]]:
 
 
 REDES_PROTEGIDAS_POR_DEFECTO = ("10.10.0.0/24", "10.20.0.0/24", "10.30.0.0/24")
+# Infraestructura que el agente nunca puede proponer aislar: si se aísla el router, la
+# gestión o el propio SOC, el remedio corta más que el ataque. Son los nombres de
+# contenedor del docker-compose.
+HOSTS_PROTEGIDOS_POR_DEFECTO = ("router", "ansible", "ingesta", "agente", "respondedor")
 
 
 def _en_redes(ip: str, redes: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]) -> bool:
@@ -182,7 +186,8 @@ def _en_redes(ip: str, redes: tuple[ipaddress.IPv4Network | ipaddress.IPv6Networ
 
 
 def validar_respuesta(resp: dict[str, Any], inc: dict[str, Any], umbral_confianza: float,
-                      redes_protegidas: tuple[str, ...] = REDES_PROTEGIDAS_POR_DEFECTO) -> dict[str, Any]:
+                      redes_protegidas: tuple[str, ...] = REDES_PROTEGIDAS_POR_DEFECTO,
+                      hosts_protegidos: tuple[str, ...] = HOSTS_PROTEGIDOS_POR_DEFECTO) -> dict[str, Any]:
     """Convierte la respuesta del modelo en un veredicto que respeta el contrato.
 
     Devuelve un dict con veredicto, confianza, severidad, justificacion, evidencia,
@@ -254,10 +259,15 @@ def validar_respuesta(resp: dict[str, Any], inc: dict[str, Any], umbral_confianz
             if "objetivo_no_presente" not in motivos:
                 motivos.append("objetivo_no_presente")
             continue
-        if tipo == "bloquear_ip" and _en_redes(objetivo, redes):
+        protegido = (
             # Bloquear una IP interna podría cortar gestión, el SOC o un servicio entero:
             # para un host interno comprometido la acción correcta es aislarlo.
-            descartes.append({"campo": "accion", "valor": a, "motivo": "IP de una red protegida"})
+            (tipo == "bloquear_ip" and _en_redes(objetivo, redes))
+            or (tipo == "aislar_host" and objetivo in hosts_protegidos)
+        )
+        if protegido:
+            motivo = "IP de una red protegida" if tipo == "bloquear_ip" else "host protegido"
+            descartes.append({"campo": "accion", "valor": a, "motivo": motivo})
             if "objetivo_protegido" not in motivos:
                 motivos.append("objetivo_protegido")
             continue

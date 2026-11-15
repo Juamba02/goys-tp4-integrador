@@ -158,3 +158,20 @@ def test_el_contexto_de_red_llega_al_modelo(webshell):
 
 def test_confianza_fuera_de_rango_se_acota(webshell):
     assert validar_respuesta(_resp(confianza=7), webshell, 0.6)["confianza"] == 1.0
+
+
+def test_no_se_aisla_un_host_protegido(webshell):
+    inc = copy.deepcopy(webshell)
+    inc["eventos"][0]["host"] = "ansible"
+    r = validar_respuesta(_resp(acciones_propuestas=[
+        {"tipo": "aislar_host", "objetivo": "ansible", "motivo": "x"},
+        {"tipo": "aislar_host", "objetivo": "web-01", "motivo": "x"},
+    ]), inc, 0.6)
+    assert [a["objetivo"] for a in r["acciones"]] == ["web-01"]
+    assert "objetivo_protegido" in r["motivos_revision"]
+    assert r["descartes"][0]["motivo"] == "host protegido"
+    # Configurable: con otra lista, ansible se acepta.
+    r = validar_respuesta(_resp(acciones_propuestas=[
+        {"tipo": "aislar_host", "objetivo": "ansible", "motivo": "x"},
+    ]), inc, 0.6, hosts_protegidos=("router",))
+    assert [a["objetivo"] for a in r["acciones"]] == ["ansible"]

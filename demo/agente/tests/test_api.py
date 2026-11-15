@@ -109,3 +109,25 @@ def test_sin_token_configurado_no_se_puede_aprobar(tmp_path, webshell):
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+def test_token_de_ingesta(tmp_path, webshell):
+    servicio = Servicio(Ledger(tmp_path / "l.jsonl"), Simulado())
+    srv = crear_servidor(servicio, "127.0.0.1", 0, TOKEN_A, TOKEN_R, "token-ingesta")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        u = f"http://127.0.0.1:{srv.server_address[1]}"
+        assert pedir(u, "POST", "/incidentes", webshell)[0] == 401
+        assert pedir(u, "POST", "/incidentes", webshell, TOKEN_A)[0] == 401
+        assert pedir(u, "POST", "/incidentes", webshell, "token-ingesta")[0] == 201
+        assert servicio.ledger.cantidad == 5  # los rechazados no llegaron a registrarse
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_reenvio_modificado_409(url, webshell):
+    assert pedir(url, "POST", "/incidentes", webshell)[0] == 201
+    webshell["alertas"][0]["severidad"] = "critica"
+    codigo, cuerpo = pedir(url, "POST", "/incidentes", webshell)
+    assert codigo == 409 and "incidente nuevo" in cuerpo["error"]

@@ -47,7 +47,7 @@
       "ts": "2026-11-13T14:02:15Z",
       "host": "web-01",
       "tipo": "archivo",
-      "datos": {"ruta": "/tmp/.x.sh", "operacion": "crear", "usuario": "www-data"}
+      "datos": {"ruta": "/tmp/.x.sh", "operacion": "crear", "proceso": "/usr/bin/curl", "usuario": "www-data"}
     }
   ],
   "etiqueta_esperada": "malicioso"

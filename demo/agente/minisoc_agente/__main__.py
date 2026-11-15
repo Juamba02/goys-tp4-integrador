@@ -16,6 +16,8 @@ Configuración por variables de entorno:
 | REDES_PROTEGIDAS    | 10.10.0.0/24,10.20.0.0/24,10.30.0.0/24 |
 | LEDGER_RUTA         | datos/ledger.jsonl        |
 | LEDGER_CLAVE        | (vacío: SHA-256 sin clave)|
+| HOSTS_PROTEGIDOS    | router,ansible,ingesta,agente,respondedor |
+| INGESTA_TOKEN       | (vacío: no se pide para enviar incidentes) |
 | ANALISTA_TOKEN      | (vacío: aprobar deshabilitado) |
 | RESPONDEDOR_TOKEN   | (vacío: ejecutar deshabilitado) |
 """
@@ -31,7 +33,7 @@ from .api import crear_servidor
 from .ledger import Ledger
 from .llm import CONTEXTO_POR_DEFECTO, MODELO_POR_DEFECTO, ErrorLLM, Ollama, Simulado
 from .servicio import Servicio
-from .triage import CONTEXTO_RED_POR_DEFECTO, REDES_PROTEGIDAS_POR_DEFECTO
+from .triage import CONTEXTO_RED_POR_DEFECTO, HOSTS_PROTEGIDOS_POR_DEFECTO, REDES_PROTEGIDAS_POR_DEFECTO
 
 
 def main() -> None:
@@ -57,9 +59,12 @@ def main() -> None:
     redes = REDES_PROTEGIDAS_POR_DEFECTO
     if os.environ.get("REDES_PROTEGIDAS"):
         redes = tuple(r.strip() for r in os.environ["REDES_PROTEGIDAS"].split(",") if r.strip())
+    hosts = HOSTS_PROTEGIDOS_POR_DEFECTO
+    if os.environ.get("HOSTS_PROTEGIDOS"):
+        hosts = tuple(h.strip() for h in os.environ["HOSTS_PROTEGIDOS"].split(",") if h.strip())
 
     ledger = Ledger(os.environ.get("LEDGER_RUTA", "datos/ledger.jsonl"), os.environ.get("LEDGER_CLAVE") or None)
-    servicio = Servicio(ledger, llm, float(os.environ.get("UMBRAL_CONFIANZA", "0.6")), contexto, redes)
+    servicio = Servicio(ledger, llm, float(os.environ.get("UMBRAL_CONFIANZA", "0.6")), contexto, redes, hosts)
 
     if isinstance(llm, Ollama):
         def precalentar() -> None:
@@ -76,12 +81,15 @@ def main() -> None:
     puerto = int(os.environ.get("AGENTE_PUERTO", "8088"))
     token_analista = os.environ.get("ANALISTA_TOKEN", "")
     token_respondedor = os.environ.get("RESPONDEDOR_TOKEN", "")
+    token_ingesta = os.environ.get("INGESTA_TOKEN", "")
+    if not token_ingesta:
+        log.warning("INGESTA_TOKEN vacío: cualquiera que llegue al puerto puede enviar incidentes")
     if not token_analista:
         log.warning("ANALISTA_TOKEN vacío: nadie puede aprobar acciones")
     if not token_respondedor:
         log.warning("RESPONDEDOR_TOKEN vacío: nadie puede marcar acciones como ejecutadas")
 
-    servidor = crear_servidor(servicio, host, puerto, token_analista, token_respondedor)
+    servidor = crear_servidor(servicio, host, puerto, token_analista, token_respondedor, token_ingesta)
     log.info("agente escuchando en http://%s:%d con modelo %s (%d entradas en el ledger)", host, puerto, llm.nombre, ledger.cantidad)
     try:
         servidor.serve_forever()

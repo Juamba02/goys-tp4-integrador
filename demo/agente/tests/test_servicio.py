@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from minisoc_agente.ledger import Ledger
@@ -115,3 +117,46 @@ def test_metricas(servicio, webshell, benigno):
     assert "minisoc_agente_acciones_pendientes 1" in texto
     assert "minisoc_agente_ledger_integro 1" in texto
     assert "minisoc_agente_latencia_veredicto_segundos_count 2" in texto
+
+
+def test_reenvio_con_alertas_nuevas_se_rechaza(servicio, webshell):
+    from minisoc_agente.servicio import IncidenteModificado
+
+    servicio.procesar_incidente(webshell)
+    cambiado = copy.deepcopy(webshell)
+    cambiado["alertas"][0]["severidad"] = "critica"
+    with pytest.raises(IncidenteModificado):
+        servicio.procesar_incidente(cambiado)
+    # La etiqueta de evaluación no cuenta como cambio de contenido.
+    otra_etiqueta = copy.deepcopy(webshell)
+    otra_etiqueta["etiqueta_esperada"] = "benigno"
+    assert servicio.procesar_incidente(otra_etiqueta)[1] is False
+
+
+def test_la_huella_sobrevive_al_reinicio(tmp_path, webshell):
+    from minisoc_agente.servicio import IncidenteModificado
+
+    ruta = tmp_path / "l.jsonl"
+    Servicio(Ledger(ruta), Simulado()).procesar_incidente(webshell)
+    s2 = Servicio(Ledger(ruta), Simulado())
+    assert s2.procesar_incidente(webshell)[1] is False
+    cambiado = copy.deepcopy(webshell)
+    cambiado["eventos"][0]["datos"]["cmdline"] = "otra cosa"
+    with pytest.raises(IncidenteModificado):
+        s2.procesar_incidente(cambiado)
+
+
+def test_si_el_analisis_falla_se_libera_el_id(tmp_path, webshell):
+    class Rompe:
+        nombre = "rompe"
+
+        def consultar(self, mensajes, incidente):
+            raise RuntimeError("falla inesperada")
+
+    s = Servicio(Ledger(tmp_path / "l.jsonl"), Rompe())
+    with pytest.raises(RuntimeError):
+        s.procesar_incidente(webshell)
+    s.llm = Simulado()
+    cambiado = copy.deepcopy(webshell)
+    cambiado["host"] = "web-01"
+    assert s.procesar_incidente(cambiado)[1] is True

@@ -7,6 +7,8 @@ pierde aprobaciones pendientes.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
 import time
 from datetime import datetime, timezone
@@ -17,6 +19,7 @@ from .llm import ClienteLLM, ErrorLLM
 from .metricas import MetricasAgente
 from .triage import (
     CONTEXTO_RED_POR_DEFECTO,
+    HOSTS_PROTEGIDOS_POR_DEFECTO,
     REDES_PROTEGIDAS_POR_DEFECTO,
     construir_mensajes,
     parsear_respuesta,
@@ -42,6 +45,16 @@ class TransicionInvalida(ValueError):
     pass
 
 
+class IncidenteModificado(ValueError):
+    """Se reenvió un incidente_id ya recibido con otro contenido."""
+
+
+def huella(inc: dict[str, Any]) -> str:
+    """Hash del contenido del incidente, sin la etiqueta de evaluación."""
+    visible = {k: v for k, v in inc.items() if k != "etiqueta_esperada"}
+    return hashlib.sha256(json.dumps(visible, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+
 def _parse_ts(ts: str) -> datetime | None:
     try:
         return datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -52,14 +65,17 @@ def _parse_ts(ts: str) -> datetime | None:
 class Servicio:
     def __init__(self, ledger: Ledger, llm: ClienteLLM, umbral_confianza: float = 0.6,
                  contexto_red: str = CONTEXTO_RED_POR_DEFECTO,
-                 redes_protegidas: tuple[str, ...] = REDES_PROTEGIDAS_POR_DEFECTO) -> None:
+                 redes_protegidas: tuple[str, ...] = REDES_PROTEGIDAS_POR_DEFECTO,
+                 hosts_protegidos: tuple[str, ...] = HOSTS_PROTEGIDOS_POR_DEFECTO) -> None:
         self.ledger = ledger
         self.llm = llm
         self.umbral_confianza = umbral_confianza
         self.contexto_red = contexto_red
         self.redes_protegidas = redes_protegidas
+        self.hosts_protegidos = hosts_protegidos
         self._lock = threading.RLock()
         self._veredictos: dict[str, dict[str, Any]] = {}
+        self._huellas: dict[str, str] = {}
         self._acciones: dict[str, dict[str, Any]] = {}
         self._contador_acciones = 0
         self._integridad_cache: tuple[int, bool] | None = None
@@ -74,7 +90,9 @@ class Servicio:
     def _reconstruir(self) -> None:
         for e in self.ledger.entradas():
             datos = e.get("datos", {})
-            if e["tipo"] == "veredicto":
+            if e["tipo"] == "incidente_recibido" and isinstance(datos.get("incidente"), dict):
+                self._huellas[e["incidente_id"]] = huella(datos["incidente"])
+            elif e["tipo"] == "veredicto":
                 self._veredictos[e["incidente_id"]] = datos
                 for a in datos.get("acciones_propuestas", []):
                     self._acciones[a["accion_id"]] = {**a, "incidente_id": e["incidente_id"], "historial": []}
@@ -92,20 +110,33 @@ class Servicio:
 
     # --------------------------------------------------------------- incidentes
     def procesar_incidente(self, inc: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-        """Devuelve (veredicto, es_nuevo). Lanza IncidenteInvalido."""
+        """Devuelve (veredicto, es_nuevo).
+
+        Un reenvío idéntico (reintento) devuelve el veredicto ya emitido, o
+        ``{"estado": "analizando"}`` si el modelo todavía no respondió. Un reenvío con
+        otro contenido lanza IncidenteModificado: las alertas nuevas tienen que llegar
+        en un incidente nuevo, si no se perderían sin aviso. Lanza IncidenteInvalido.
+        """
         validar_incidente(inc)
         iid = inc["incidente_id"]
+        h = huella(inc)
         with self._lock:
             if iid in self._veredictos:
+                if self._huellas.get(iid) != h:
+                    raise IncidenteModificado(
+                        f"el incidente {iid} ya se recibió con otro contenido; "
+                        "las alertas nuevas tienen que ir en un incidente nuevo")
                 return self._public(self._veredictos[iid]), False
             # Se reserva el id para que dos envíos simultáneos no lo analicen dos veces.
             self._veredictos[iid] = {"incidente_id": iid, "estado": "analizando"}
+            self._huellas[iid] = h
 
         try:
             veredicto = self._analizar(inc)
         except Exception:
             with self._lock:
                 self._veredictos.pop(iid, None)
+                self._huellas.pop(iid, None)
             raise
         return self._public(veredicto), True
 
@@ -135,7 +166,8 @@ class Servicio:
                 resultado = veredicto_fallido(inc, "respuesta_invalida")
             else:
                 self.ledger.registrar("respuesta_llm", iid, {"crudo": crudo, "latencia_ms": round(latencia * 1000)})
-                resultado = validar_respuesta(parseada, inc, self.umbral_confianza, self.redes_protegidas)
+                resultado = validar_respuesta(parseada, inc, self.umbral_confianza,
+                                              self.redes_protegidas, self.hosts_protegidos)
 
         with self._lock:
             acciones = []

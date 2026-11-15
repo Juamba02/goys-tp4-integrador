@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if a.cmd == "enviar":
         with open(a.archivo, encoding="utf-8") as f:
-            _mostrar(*_pedir("POST", "/incidentes", json.load(f)))
+            _mostrar(*_pedir("POST", "/incidentes", json.load(f), os.environ.get("INGESTA_TOKEN")))
     elif a.cmd == "veredicto":
         _mostrar(*_pedir("GET", f"/incidentes/{a.incidente_id}"))
     elif a.cmd == "acciones":

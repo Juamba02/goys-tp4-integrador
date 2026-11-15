@@ -32,6 +32,9 @@ incidente ─▶ validar contrato ─▶ prompt ─▶ LLM local ─▶ validar 
 | El modelo cita eventos que no existen | Cada ID de `evidencia` se busca en el incidente | Se descarta y el incidente pasa a revisión humana (`evidencia_inexistente`) |
 | Propone actuar sobre algo ajeno al incidente | El host tiene que ser el del incidente; la IP tiene que figurar como valor en algún evento | Se descarta (`objetivo_no_presente`) |
 | Propone bloquear una IP propia (gestión, SOC, un servidor) | `bloquear_ip` no se acepta sobre las redes protegidas | Se descarta (`objetivo_protegido`) |
+| Propone aislar infraestructura (router, Ansible, el SOC) | `aislar_host` no se acepta sobre los hosts protegidos | Se descarta (`objetivo_protegido`) |
+| Alguien inyecta incidentes armados | `POST /incidentes` pide `INGESTA_TOKEN`, y en la red el 8088 solo se alcanza desde el segmento SOC | Rechazado (401) |
+| Un reenvío trae alertas nuevas que se perderían | Se compara un hash del contenido con el del primer envío | Rechazado (409) para que la ingesta lo mande como incidente nuevo |
 | Descarta un ataque real | Un veredicto benigno sobre alertas altas o críticas no se cierra solo | Revisión humana (`descarte_de_alerta_grave`) |
 | Inventa acciones | Solo existen `aislar_host` y `bloquear_ip`, cada una con su reversión | Se descarta (`accion_no_permitida`) |
 | Inyección de prompt en logs | Los eventos van marcados como datos; el prompt lo aclara; los controles de arriba igual aplican | Ver `ejemplos/incidente-inyeccion.json` |
@@ -150,6 +153,8 @@ uv run python -m minisoc_agente.ledger datos/ledger.jsonl
 | `UMBRAL_CONFIANZA` | `0.6` | Por debajo, el incidente va a revisión humana |
 | `CONTEXTO_RED_ARCHIVO` | vacío (contexto del laboratorio) | Texto con los segmentos y servidores conocidos que se le da al modelo |
 | `REDES_PROTEGIDAS` | `10.10.0.0/24,10.20.0.0/24,10.30.0.0/24` | Redes sobre las que no se acepta `bloquear_ip` |
+| `HOSTS_PROTEGIDOS` | `router,ansible,ingesta,agente,respondedor` | Hosts (contenedores) sobre los que no se acepta `aislar_host` |
+| `INGESTA_TOKEN` | vacío | Si se define, `POST /incidentes` lo pide; la CLI lo toma de la misma variable |
 | `LEDGER_RUTA` | `datos/ledger.jsonl` | Archivo del ledger |
 | `LEDGER_CLAVE` | vacío | Si se define, el hash es HMAC-SHA-256 |
 | `ANALISTA_TOKEN` | vacío | Sin él, nadie puede aprobar |
@@ -175,9 +180,10 @@ Los tokens y la clave van por variable de entorno (o Ansible Vault); nunca al re
 
 ## Pendiente con el grupo
 
-- **Juan:** confirmar el formato del incidente, el direccionamiento (los ejemplos
-  usan 10.20.0.0/24 para servicios, 10.10.0.0/24 para gestión y 10.99.0.0/24 como
-  "afuera", a reemplazar por el real) y cómo el respondedor aplica las acciones.
+- **Juan:** ya confirmó el formato, el direccionamiento y el respondedor (ver
+  [CONTRATO.md](CONTRATO.md)). Falta que la ingesta cumpla los campos mínimos de
+  `datos`, use `INGESTA_TOKEN` y un timeout de 150 s, y que los contenedores se
+  llamen como los hosts protegidos.
 - **Tomás:** sumar el agente y Ollama al despliegue con Ansible, el job de
   Prometheus para `:8088/metrics` y los paneles de Grafana.
 - **Grupo:** probar el modelo 8B en la notebook de la demo (pasos de arriba) y
