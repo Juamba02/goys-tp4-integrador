@@ -23,8 +23,10 @@
 
 | Fecha | Qué se hizo | Quién | Commit |
 |-------|-------------|-------|--------|
-| 13/11/2026 | Agente de triage con LLM local, aprobación humana, ledger encadenado, API, métricas, CLI, contrato de datos y 43 tests (`demo/agente/`, PR #2) | Joaquín Mazza | 7babd1c |
-| 13/11/2026 | Documento: secciones del agente de IA y ledger (2.2, 2.3, 3.5, 4.4, 5, 6) | Joaquín Mazza | (este PR) |
+| 13/11/2026 | Agente de triage con LLM local, aprobación humana, ledger encadenado, API, métricas, CLI, contrato de datos y 43 tests (`demo/agente/`, PR #2) | Joaquín Mazza | e69e4ce |
+| 13/11/2026 | Documento: secciones del agente de IA y ledger (2.2, 2.3, 3.5, 4.4, 5, 6) | Joaquín Mazza | 434bdcf |
+| 13/11/2026 | Evaluación con Llama 3.2 3B y 3.1 8B; controles nuevos y resultados en el documento (4.4) | Joaquín Mazza | 54a370e, bce4b69 |
+| 15/11/2026 | Cambios de la revisión del contrato de Juan (reenvíos, hosts protegidos, token de ingesta) | Joaquín Mazza | 16169d7, dca63a0 |
 
 ## 🚧 Pendientes / decisiones
 
