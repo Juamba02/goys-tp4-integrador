@@ -255,7 +255,7 @@ responde durante la demo.
 
 ### 4.4. Pruebas del agente y del ledger
 
-El agente tiene 49 pruebas automáticas (`uv run pytest` en `demo/agente`) que
+El agente tiene 66 pruebas automáticas (`uv run pytest` en `demo/agente`) que
 pasan en su totalidad. Las más relevantes:
 
 Tabla 2: Pruebas del agente
@@ -268,7 +268,7 @@ Tabla 2: Pruebas del agente
 | Modelo caído o respuesta que no es JSON | Veredicto `indeterminado`, revisión humana | ✔ |
 | Aprobar sin token, con token equivocado o con el del respondedor | Rechazado (401) | ✔ |
 | Ejecutar una acción no aprobada | Rechazado (409) | ✔ |
-| Editar el contenido de una entrada del ledger | La verificación falla en esa entrada | ✔ |
+| Editar el contenido de una entrada del ledger | La verificación falla en esa entrada y la métrica de integridad baja a 0 | ✔ |
 | Borrar una entrada del ledger | La verificación falla | ✔ |
 | Reescribir el ledger completo sin la clave HMAC | La verificación falla | ✔ |
 | Reiniciar el servicio con acciones aprobadas | El estado se reconstruye desde el ledger | ✔ |
