@@ -21,3 +21,6 @@ credentials*
 *.bak
 *.log
 *.rsc.bak
+
+# Paquete offline (imágenes y modelos, varios GB)
+demo/offline/paquete/
