@@ -28,6 +28,7 @@ VARIABLES=(
   "RESPONDEDOR_TOKEN|Respondedor -> agente: marcar acciones como ejecutadas."
   "CONTENCION_TOKEN|Respondedor -> router: aplicar y revertir contención. Sin este, la red no se toca."
   "LEDGER_CLAVE|Clave HMAC del ledger del agente: sin ella no se puede reescribir la cadena."
+  "GRAFANA_ADMIN_CLAVE|Usuario admin de Grafana (http://127.0.0.1:3000). Para mirar no hace falta."
 )
 
 umask 077

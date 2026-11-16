@@ -33,7 +33,7 @@ probar() {  # origen destino puerto
 morir() { echo -e "${R}$1${F}" >&2; exit 1; }
 
 # ------------------------------------------------------------------ preparación
-[[ -f .env ]] || ./preparar.sh
+./preparar.sh >/dev/null   # agrega al .env las variables que falten, sin tocar las que hay
 set -a; . ./.env; set +a
 
 echo -e "${N}MiniSOC-IA${F} — centro de operaciones de seguridad asistido por IA"

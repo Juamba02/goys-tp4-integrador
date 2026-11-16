@@ -2,6 +2,7 @@
 #
 # Cuatro segmentos unidos por un único router que aplica la política de firewall.
 # Ningún contenedor publica puertos en el host: todo se opera con `docker compose exec`.
+# La única excepción es Grafana, en 127.0.0.1:3000 (solo desde la propia notebook).
 #
 # Sin salida a Internet, en tres capas:
 #   1. las redes no hacen NAT hacia afuera (enable_ip_masquerade: false);
@@ -273,6 +274,49 @@ services:
       router:
         condition: service_healthy
 
+  # Grafana: dashboard del SOC (monitoreo/grafana). Es el ÚNICO puerto publicado
+  # en el host, y solo en 127.0.0.1: se ve en el navegador de la notebook, no desde
+  # la LAN. Sin login para mirar (Viewer anónimo); para editar, admin con la clave
+  # de GRAFANA_ADMIN_CLAVE del .env.
+  grafana:
+    image: grafana/grafana-oss:12.1.1
+    container_name: grafana
+    hostname: grafana
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_CLAVE:?falta GRAFANA_ADMIN_CLAVE, correr ./preparar.sh}"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_DEFAULT_LANGUAGE: es-ES
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/minisoc.json
+      # Sin Internet: que no intente buscar actualizaciones, noticias ni plugins.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      - ./monitoreo/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoreo/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-datos:/var/lib/grafana
+    networks:
+      soc: {ipv4_address: 10.30.0.61}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      retries: 24
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
   # ---------------------------------------------------------------- externo
   atacante:
     <<: *nodo
@@ -309,3 +353,5 @@ volumes:
   agente-datos:
   # Series de Prometheus (7 días).
   prometheus-datos:
+  # Base de Grafana (usuarios, preferencias). Los dashboards vienen del repo.
+  grafana-datos:

@@ -1,0 +1,13 @@
+# Fuente de datos de Grafana: el Prometheus del laboratorio, en el mismo segmento.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://10.30.0.60:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 5s
