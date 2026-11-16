@@ -41,6 +41,8 @@ analista    10.30.0.254 9100  bloqueado  en el SOC, solo Prometheus lee las mét
 web-01      10.20.0.254 9100  bloqueado  las métricas del router no se ven desde servicios
 web-01      10.30.0.60  9090  bloqueado  servicios no llegan a Prometheus
 atacante    10.30.0.61  3000  bloqueado  Internet no llega a Grafana
+web-01      10.30.0.70  11434 bloqueado  un servidor comprometido no llega al modelo
+atacante    10.30.0.70  11434 bloqueado  ni Internet
 FIN
 )
 

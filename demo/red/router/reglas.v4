@@ -13,6 +13,7 @@
 #                       db-01  10.20.0.13   respondedor 10.30.0.30
 #                                           prometheus  10.30.0.60
 #                                           grafana     10.30.0.61
+#                                           ollama      10.30.0.70
 
 *filter
 :INPUT DROP [0:0]
