@@ -318,7 +318,7 @@
     {
       "type": "stat",
       "title": "Exactitud del agente",
-      "description": "(VP + VN) / evaluados, contra los escenarios etiquetados del simulador.",
+      "description": "(VP + VN) / evaluados. Solo con escenarios etiquetados (agente/ejemplos): un incidente real no trae la respuesta correcta, así que en la demo normal queda vacío.",
       "id": 6,
       "datasource": {
         "type": "prometheus",
@@ -850,7 +850,7 @@
     {
       "type": "bargauge",
       "title": "Evaluación contra escenarios etiquetados",
-      "description": "VP: ataque detectado · VN: benigno bien cerrado · FP: falsa alarma · FN: ataque no detectado.",
+      "description": "Solo con escenarios etiquetados (agente/ejemplos); en la demo normal queda vacío. VP: ataque detectado · VN: benigno bien cerrado · FP: falsa alarma · FN: ataque no detectado.",
       "id": 14,
       "datasource": {
         "type": "prometheus",
@@ -892,6 +892,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "none",
+          "noValue": "Sin escenarios etiquetados",
           "min": 0,
           "decimals": 0,
           "color": {

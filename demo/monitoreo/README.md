@@ -101,9 +101,11 @@ docker compose exec prometheus promtool check config /etc/prometheus/prometheus.
 
 ## Limitaciones
 
-- **La exactitud del agente (VP/FP) queda vacía en la demo integrada.** El agente solo
-  la calcula si el incidente trae `etiqueta_esperada`, y hoy la correlación no la manda.
-  Con los incidentes sintéticos del agente (`agente/ejemplos`) sí se llena.
+- **La exactitud del agente (VP/FP) solo se llena con escenarios etiquetados.** El agente
+  la calcula si el incidente trae `etiqueta_esperada`, y un incidente real no la trae: la
+  correlación no la inventa, porque el agente se estaría evaluando contra una respuesta
+  puesta por nosotros. Se llena mandando los incidentes etiquetados de `agente/ejemplos`.
+  En la demo normal los dos paneles dicen "Sin escenarios etiquetados".
 - **Los contadores vuelven a cero al reiniciar un servicio.** Prometheus lo toma como
   un reinicio y `rate()` / `increase()` siguen dando bien.
 - **Prometheus y Grafana usan el bridge de Docker como ruta por defecto**, igual que el
