@@ -152,30 +152,104 @@ conclusiones.
 
 ### 2.2. Componentes
 
-[Pendiente]
+[Pendiente: filas de red, ingesta, detección, automatización y monitoreo]
+
+| Componente | Tecnología | Función |
+|------------|------------|---------|
+| Agente de triage | Python 3 (biblioteca estándar) | Consulta al modelo, valida su respuesta y deja las acciones para que el analista las apruebe |
+| Modelo de lenguaje | Ollama + Llama 3.1 8B local (3B sin GPU) | Propone veredicto, justificación y acciones; no tiene acceso a la red |
+| Ledger | JSONL con hash encadenado (HMAC) | Registro auditable de cada paso del agente y de cada decisión humana |
 
 ### 2.3. Flujo de datos
 
-[Pendiente]
+[Pendiente: recorrido desde el servicio monitoreado hasta el incidente correlacionado]
+
+El incidente correlacionado llega al agente por HTTP (`POST /incidentes`). El
+agente le pide un veredicto al modelo local, valida la respuesta contra el
+incidente (sección 3.5) y deja las acciones propuestas pendientes; el respondedor
+aplica las que aprueba el analista. Cada paso queda en el ledger y las métricas
+del agente van a Prometheus.
 
 ## 3. Implementación
 
 [Pendiente: 3.1 Configuración de red · 3.2 Container networking · 3.3 Automatización · 3.4 Monitoreo]
 
+### 3.5. Agente de IA y ledger
+
+El modelo se trata como una fuente que puede equivocarse o ser manipulada: el
+agente no ejecuta lo que dice, sino que lo contrasta con el incidente. Si algo no
+cierra, el incidente va a revisión humana (Tabla 1).
+
+Tabla 1: Controles sobre la respuesta del modelo
+
+| Riesgo | Control |
+|--------|---------|
+| Cita eventos que no existen | Cada evidencia se busca en el incidente |
+| Propone una acción indebida o pedida por un log (inyección) | Solo `aislar_host` y `bloquear_ip`, sobre objetivos que figuren en el incidente y nunca sobre la red propia, el router o el SOC |
+| Descarta un ataque real | Un veredicto benigno sobre alertas altas o críticas no se cierra solo |
+| Responde mal, no responde o duda | Veredicto `indeterminado` |
+
+**Aprobación humana.** Las acciones nacen pendientes. Enviar incidentes, aprobar
+acciones y marcarlas como ejecutadas requieren tres tokens distintos (ingesta,
+analista y respondedor), así que ningún componente completa el ciclo solo.
+
+**Ledger.** Cada entrada guarda el hash de la anterior (un HMAC, si hay clave):
+modificar, borrar o cortar una línea rompe la cadena, y la verificación y la
+métrica de integridad lo detectan. Al reiniciar, el agente reconstruye su estado
+desde el ledger.
+
+**Diseño.** Solo usa la biblioteca estándar de Python, para que la demo funcione
+sin Internet. El prompt incluye el contexto de la red y pide la justificación
+antes del veredicto. Un modelo simulado sirve para los tests y como plan B.
+
 ## 4. Verificación
 
 [Pendiente: 4.1 Conectividad · 4.2 Segmentación · 4.3 Automatización]
 
+### 4.4. Pruebas del agente y del ledger
+
+Las 66 pruebas automáticas del agente pasan. Cubren los controles de la Tabla 1,
+los tokens (aprobar sin token o ejecutar una acción no aprobada se rechaza) y el
+ledger (editar, borrar o cortar una línea hace fallar la verificación, y al
+reiniciar el estado se reconstruye).
+
+**Evaluación con modelos reales.** Se analizaron 16 incidentes sintéticos
+etiquetados, 3 veces cada uno, con Llama 3.2 3B y 3.1 8B (detalle en
+`demo/agente/RESULTADOS.md`). Con el prompt inicial, el 3B cerraba como benignos
+ataques evidentes: **15 de 36 errores se habrían cerrado sin revisión**. Después
+de corregir el prompt y sumar los controles, esos errores bajaron **a 0**, con
+83 % de exactitud y unos 2,5 s por veredicto. En 4 incidentes nuevos, que no se
+usaron para ajustar el prompt, el 8B detectó los dos ataques y el 3B ninguno.
+Ningún modelo resistió la inyección de prompt: la frenaron los controles.
+
 ## 5. Limitaciones y trabajo futuro
 
-[Pendiente]
+[Pendiente: limitaciones de red, detección, automatización y monitoreo]
+
+- **Agente:** los modelos chicos se equivocan seguido (50 % en los incidentes de
+  control) y declaran confianza alta igual. Los controles evitan el daño, pero
+  muchos incidentes terminan en el analista. La evaluación usa pocos incidentes
+  sintéticos.
+- **Ledger y aprobación:** sin clave, quien acceda al archivo puede reescribir la
+  cadena; los tokens son por rol y no por persona, y la reversión es manual.
+  Trabajo futuro: anclar el último hash fuera del SOC, usuarios por analista y una
+  reversión auditada.
 
 ## 6. Conclusiones
 
-[Pendiente]
+[Pendiente: conclusiones del grupo y distribución del trabajo]
+
+En la parte de IA, lo que hizo seguro al sistema no fue el modelo, que se
+equivoca y obedece texto inyectado, sino los controles que lo rodean y la
+aprobación humana. Medir antes y después de cada cambio permitió llevar a cero
+los errores que el agente cerraba solo, y el ledger deja cada decisión lista para
+auditar.
 
 ## 7. Referencias
 
 - beenuar. (2026). *AiSOC: Open-source AI Security Operations Center*. Recuperado de https://github.com/beenuar/AiSOC
 - MITRE. (2026). *MITRE ATT&CK*. Recuperado de https://attack.mitre.org/
 - CISA. (2026). *Known Exploited Vulnerabilities Catalog*. Recuperado de https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+- Ollama. (2026). *Ollama API: structured outputs*. Recuperado de https://github.com/ollama/ollama/blob/main/docs/api.md
+- OWASP. (2025). *OWASP Top 10 for LLM Applications: LLM01 Prompt Injection*. Recuperado de https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+- IETF. (1997). *RFC 2104: HMAC: Keyed-Hashing for Message Authentication*. Recuperado de https://datatracker.ietf.org/doc/rfc2104/
