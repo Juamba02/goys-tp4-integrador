@@ -1,0 +1,96 @@
+# Reglas de alerta del MiniSOC-IA.
+#
+# Sin Alertmanager: el laboratorio no tiene salida a Internet para mandar correos.
+# Las alertas activas se ven en Prometheus (Alerts) y en el panel "Alertas activas"
+# de Grafana, que lee la serie ALERTS.
+#
+# Dos grupos: la salud de la plataforma (¿el SOC funciona?) y la seguridad
+# (¿qué está pasando en la red?).
+
+groups:
+  - name: plataforma
+    rules:
+      - alert: ServicioCaido
+        expr: up == 0
+        for: 30s
+        labels: {severidad: critica}
+        annotations:
+          resumen: "{{ $labels.job }} no responde"
+          detalle: "Prometheus no puede leer {{ $labels.instance }} hace más de 30 s."
+
+      - alert: LedgerNoIntegro
+        expr: minisoc_agente_ledger_integro == 0
+        labels: {severidad: critica}
+        annotations:
+          resumen: "El ledger del agente no verifica"
+          detalle: "La cadena de hashes o el HMAC no cierran: alguien editó el ledger o quedó una línea cortada. Revisar con /ledger/verificar."
+
+      - alert: FirewallSinLectura
+        expr: minisoc_router_lectura_ok == 0
+        for: 30s
+        labels: {severidad: alta}
+        annotations:
+          resumen: "No se pueden leer los contadores del firewall"
+          detalle: "metricas.py no obtiene la salida de iptables-save en el router."
+
+      - alert: ErroresDelModelo
+        expr: increase(minisoc_agente_llm_errores_total[5m]) > 0
+        labels: {severidad: alta}
+        annotations:
+          resumen: "El modelo de lenguaje está fallando"
+          detalle: "{{ $value | printf \"%.0f\" }} errores del LLM en 5 min: los incidentes quedan para revisión humana."
+
+      - alert: TelemetriaPerdida
+        expr: increase(minisoc_ingesta_perdidos_en_sensor_total[5m]) > 0
+        labels: {severidad: media}
+        annotations:
+          resumen: "{{ $labels.host }} perdió eventos"
+          detalle: "El sensor descartó eventos por tener la cola llena: hay un hueco en la telemetría."
+
+      - alert: VeredictoLento
+        expr: histogram_quantile(0.9, sum by (le) (rate(minisoc_agente_evento_a_veredicto_segundos_bucket[10m]))) > 60
+        for: 1m
+        labels: {severidad: media}
+        annotations:
+          resumen: "El SOC tarda más de 1 min en dar veredicto"
+          detalle: "El 90 % de los incidentes tarda {{ $value | printf \"%.0f\" }} s desde el primer evento hasta el veredicto."
+
+  - name: seguridad
+    rules:
+      - alert: AlertaDeteccionAlta
+        expr: sum by (regla, tecnica) (increase(minisoc_deteccion_alertas_total{severidad="alta"}[2m])) > 0
+        labels: {severidad: alta}
+        annotations:
+          resumen: "Detección {{ $labels.regla }} ({{ $labels.tecnica }})"
+          detalle: "Una regla de severidad alta disparó en los últimos 2 min."
+
+      - alert: AccionEsperandoAprobacion
+        expr: minisoc_agente_acciones_pendientes > 0
+        for: 1m
+        labels: {severidad: alta}
+        annotations:
+          resumen: "{{ $value | printf \"%.0f\" }} acciones esperan aprobación"
+          detalle: "El agente propuso contener y nadie aprobó ni rechazó hace más de 1 min."
+
+      - alert: TraficoExternoDescartado
+        expr: rate(minisoc_router_descartados_paquetes_total{origen="externo"}[1m]) > 5
+        for: 30s
+        labels: {severidad: media}
+        annotations:
+          resumen: "Mucho tráfico de Internet descartado"
+          detalle: "{{ $value | printf \"%.1f\" }} paquetes/s desde la red externa contra puertos cerrados: posible escaneo."
+
+      - alert: MovimientoLateralDescartado
+        expr: rate(minisoc_router_descartados_paquetes_total{origen="servicios"}[1m]) > 1
+        for: 30s
+        labels: {severidad: alta}
+        annotations:
+          resumen: "Servicios intentan salir de su segmento"
+          detalle: "Un host de servicios intenta conexiones que la política no permite: posible movimiento lateral o exfiltración."
+
+      - alert: LotesRechazados
+        expr: increase(minisoc_ingesta_lotes_rechazados_total{motivo=~"token|ip_no_coincide|sensor_desconocido"}[5m]) > 0
+        labels: {severidad: alta}
+        annotations:
+          resumen: "La ingesta rechazó lotes ({{ $labels.motivo }})"
+          detalle: "Alguien manda telemetría con token inválido o desde una IP que no es la del sensor."

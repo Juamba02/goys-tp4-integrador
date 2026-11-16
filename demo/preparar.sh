@@ -8,8 +8,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-token() { python3 -c 'import secrets; print(secrets.token_urlsafe(24))' 2>/dev/null \
-          || python -c 'import secrets; print(secrets.token_urlsafe(24))'; }
+# 24 bytes aleatorios en base64 url-safe. En Windows `python` suele ser el alias de
+# la Microsoft Store, que no imprime nada: por eso el último recurso es /dev/urandom,
+# que Git Bash y WSL tienen siempre. Un token vacío dejaría los servicios sin
+# autenticación, así que si no sale ninguno se corta acá.
+token() {
+    local t
+    t=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))' 2>/dev/null || true)
+    [[ ${#t} -ge 32 ]] || t=$(head -c 24 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
+    [[ ${#t} -ge 32 ]] || { echo "preparar: no pude generar un token aleatorio" >&2; return 1; }
+    echo "$t"
+}
 
 # variable|comentario
 VARIABLES=(
@@ -19,6 +28,7 @@ VARIABLES=(
   "RESPONDEDOR_TOKEN|Respondedor -> agente: marcar acciones como ejecutadas."
   "CONTENCION_TOKEN|Respondedor -> router: aplicar y revertir contención. Sin este, la red no se toca."
   "LEDGER_CLAVE|Clave HMAC del ledger del agente: sin ella no se puede reescribir la cadena."
+  "GRAFANA_ADMIN_CLAVE|Usuario admin de Grafana (http://127.0.0.1:3000). Para mirar no hace falta."
 )
 
 umask 077
@@ -28,9 +38,15 @@ fi
 agregadas=0
 for v in "${VARIABLES[@]}"; do
     nombre=${v%%|*}; comentario=${v#*|}
+    # Una variable vacía (de una corrida anterior sin Python) se vuelve a generar. Se
+    # borra junto con su comentario, que el printf de abajo vuelve a escribir.
+    sed -i "/^# /{N;/\n${nombre}=$/d;P;D}" .env
+    sed -i "/^${nombre}=$/d" .env
     if ! grep -q "^${nombre}=" .env; then
-        printf '\n# %s\n%s=%s\n' "$comentario" "$nombre" "$(token)" >> .env
+        valor=$(token)   # con set -e, si token falla el script termina acá
+        printf '\n# %s\n%s=%s\n' "$comentario" "$nombre" "$valor" >> .env
         agregadas=$((agregadas + 1))
     fi
 done
+sed -i '/^$/N;/^\n$/D' .env   # sin líneas en blanco dobles donde se borró algo
 echo ".env listo: $agregadas variables nuevas, ${#VARIABLES[@]} en total"

@@ -22,6 +22,10 @@ echo "reglas cargadas desde $REGLAS"
 ip -brief address | grep -v '^lo'
 ip route
 
+# Métricas del firewall para Prometheus (10.30.0.254:9100). Si el proceso se cae,
+# se vuelve a levantar: no debe arrastrar al servicio de contención.
+( while true; do python3 /usr/local/lib/minisoc/metricas.py; sleep 2; done ) &
+
 touch /run/minisoc-listo
 
 # El servicio de contención queda como proceso principal del router: es la única

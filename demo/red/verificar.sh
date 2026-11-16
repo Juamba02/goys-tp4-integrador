@@ -37,6 +37,10 @@ atacante    10.99.0.1   22    bloqueado  el atacante tampoco llega al host
 web-01      10.20.0.254 9000  bloqueado  la contención del router no se ve desde servicios
 analista    10.30.0.254 9000  bloqueado  en el SOC, solo el respondedor llega a la contención
 atacante    10.99.0.254 9000  bloqueado  ni desde Internet
+analista    10.30.0.254 9100  bloqueado  en el SOC, solo Prometheus lee las métricas del router
+web-01      10.20.0.254 9100  bloqueado  las métricas del router no se ven desde servicios
+web-01      10.30.0.60  9090  bloqueado  servicios no llegan a Prometheus
+atacante    10.30.0.61  3000  bloqueado  Internet no llega a Grafana
 FIN
 )
 
@@ -64,8 +68,26 @@ while read -r origen ip puerto esperado desc; do
     fi
 done <<< "$PRUEBAS"
 
+echo "== Monitoreo: Prometheus lee a cada servicio"
+# Prometheus lee cada 5 s: se espera hasta 20 s a que cada objetivo responda.
+for job in router ingesta deteccion agente respondedor prometheus; do
+    estado=""
+    for _ in $(seq 1 10); do
+        estado=$(docker compose exec -T prometheus wget -qO- \
+            "http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22$job%22%7D" 2>/dev/null </dev/null | tr -d '\r')
+        [[ "$estado" == *'"1"]'* ]] && break
+        sleep 2
+    done
+    if [[ "$estado" == *'"1"]'* ]]; then
+        printf '  OK    %-12s up\n' "$job"; ok=$((ok + 1))
+    else
+        printf '  FALLA %-12s Prometheus no lo puede leer\n' "$job"; fallas=$((fallas + 1))
+    fi
+done
+
 echo "== Paquetes descartados por la segmentación"
-docker compose exec -T router iptables -L MINISOC-DENEGADO -v -n -x 2>/dev/null </dev/null | tr -d '\r' | awk 'NR==3 {print "  " $1 " paquetes descartados"}'
+# La última regla de MINISOC-DENEGADO es el DROP; las anteriores solo cuentan por origen.
+docker compose exec -T router iptables -L MINISOC-DENEGADO -v -n -x 2>/dev/null </dev/null | tr -d '\r' | awk '$3 == "DROP" {print "  " $1 " paquetes descartados"}'
 
 echo
 echo "Resultado: $ok OK, $fallas fallas"

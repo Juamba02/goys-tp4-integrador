@@ -1,0 +1,52 @@
+# Prometheus del MiniSOC-IA (10.30.0.60).
+#
+# Está en el segmento SOC, igual que los servicios que lee: no cruza el router y
+# no necesita reglas en el firewall, salvo para las métricas del router mismo
+# (10.30.0.254:9100, abierto solo para esta IP en reglas.v4).
+#
+# Intervalo corto a propósito: en la demo un ataque dura segundos y tiene que
+# verse en Grafana mientras pasa.
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    laboratorio: minisoc
+
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+
+  # Firewall: descartados por segmento, contención activa (red/router/metricas.py).
+  - job_name: router
+    static_configs:
+      - targets: ["10.30.0.254:9100"]
+        labels: {segmento: soc, componente: red}
+
+  # Ingesta: eventos recibidos y rechazados por host (demo/ingesta).
+  - job_name: ingesta
+    static_configs:
+      - targets: ["10.30.0.10:8081"]
+        labels: {segmento: soc, componente: soc}
+
+  # Detección y correlación: alertas por regla MITRE e incidentes (demo/deteccion).
+  - job_name: deteccion
+    static_configs:
+      - targets: ["10.30.0.40:8082"]
+        labels: {segmento: soc, componente: soc}
+
+  # Agente de triage: veredictos, VP/FP, latencia, ledger (demo/agente).
+  - job_name: agente
+    static_configs:
+      - targets: ["10.30.0.20:8088"]
+        labels: {segmento: soc, componente: soc}
+
+  # Respondedor: acciones aplicadas en el router (demo/respondedor).
+  - job_name: respondedor
+    static_configs:
+      - targets: ["10.30.0.30:8083"]
+        labels: {segmento: soc, componente: soc}

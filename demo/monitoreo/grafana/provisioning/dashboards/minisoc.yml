@@ -1,0 +1,11 @@
+# Los dashboards se cargan desde el repo al arrancar y no se pueden editar desde la
+# interfaz: el que vale es el JSON de monitoreo/grafana/dashboards/.
+apiVersion: 1
+
+providers:
+  - name: minisoc
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
