@@ -1,0 +1,82 @@
+# Imágenes construidas y servicios del compose arriba y sanos.
+
+# `docker compose build` usa la caché: si el código no cambió, las imágenes quedan
+# iguales. Se comparan los IDs antes y después para saber si hubo un cambio real.
+- name: IDs de las imágenes antes de construir
+  ansible.builtin.shell: &ids >-
+    docker compose config --images | sort -u |
+    while read -r img; do docker image inspect --format '{{ "{{" }}.Id{{ "}}" }}' "$img" 2>/dev/null || echo "$img falta"; done
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: imagenes_antes
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+# Ocho servicios comparten minisoc/nodo:dev. Si se construyen todos juntos, compiten
+# por la misma etiqueta y la imagen cambia de ID en cada corrida (y Compose recrea
+# los contenedores). Se construye un servicio por imagen.
+- name: Servicios que construyen cada imagen
+  ansible.builtin.command: docker compose config --format json
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: compose_config
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+  when: minisoc_construir | bool
+
+- name: Construir las imágenes del laboratorio
+  ansible.builtin.command:
+    argv: "{{ ['docker', 'compose', 'build', '--quiet'] + servicios_a_construir }}"
+    chdir: "{{ minisoc_demo }}"
+  vars:
+    servicios_a_construir: >-
+      {{ (compose_config.stdout | from_json).services | dict2items
+         | selectattr('value.build', 'defined') | groupby('value.image')
+         | map('last') | map('first') | map(attribute='key') | list }}
+  environment:
+    # Sin attestations de procedencia: llevan la hora del build y cambiarían el ID.
+    BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
+  changed_when: false
+  when: minisoc_construir | bool
+
+# Sin construir, cada imagen tiene que estar cargada (ver offline/).
+- name: Todas las imágenes están cargadas
+  ansible.builtin.assert:
+    that: "'falta' not in imagenes_antes.stdout"
+    fail_msg: "Faltan imágenes: {{ imagenes_antes.stdout_lines | select('search', 'falta') | list }}"
+  when: not (minisoc_construir | bool)
+
+- name: IDs de las imágenes después de construir
+  ansible.builtin.shell: *ids
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: imagenes_despues
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Imágenes actualizadas
+  ansible.builtin.debug:
+    msg: "{{ 'hay imágenes nuevas' if imagenes_antes.stdout != imagenes_despues.stdout else 'sin cambios' }}"
+  changed_when: imagenes_antes.stdout != imagenes_despues.stdout
+
+# Recrea solo lo que cambió (imagen o configuración) y espera a los healthchecks.
+# Prometheus y Grafana se bajan solo si faltan: con las imágenes ya cargadas
+# (paso offline) no necesita Internet.
+- name: Servicios arriba y sanos
+  community.docker.docker_compose_v2:
+    project_src: "{{ minisoc_demo }}"
+    state: present
+    build: never
+    pull: missing
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ minisoc_espera }}"
+  environment:
+    LLM_BACKEND: "{{ minisoc_llm }}"
+    OLLAMA_URL: "{{ minisoc_ollama_url }}"
+    OLLAMA_MODELO: "{{ minisoc_ollama_modelo }}"
+  register: compose
+
+- name: Servicios
+  ansible.builtin.debug:
+    msg: "{{ compose.containers | map(attribute='Name') | sort | join(', ') }}"

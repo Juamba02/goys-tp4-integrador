@@ -1,0 +1,25 @@
+# Despliegue completo del MiniSOC-IA. Idempotente: si ya está todo como debe, la
+# segunda corrida termina con changed=0.
+#
+#   ./ansible/ejecutar.sh                              desde demo/
+#   ./ansible/ejecutar.sh -e minisoc_llm=ollama        con Llama en vez del simulado
+#   ./ansible/ejecutar.sh --tags verificacion          solo las pruebas
+#
+# Roles:
+#   preparacion   Docker disponible, .env con todos los tokens
+#   laboratorio   imágenes construidas, servicios arriba y sanos
+#   verificacion  41 pruebas de red y monitoreo, ledger íntegro, Grafana arriba
+
+- name: Desplegar el MiniSOC-IA
+  hosts: notebook
+  gather_facts: false
+  vars:
+    # demo/, donde están el compose y los scripts.
+    minisoc_demo: "{{ playbook_dir | dirname }}"
+  roles:
+    - role: preparacion
+      tags: [preparacion]
+    - role: laboratorio
+      tags: [laboratorio]
+    - role: verificacion
+      tags: [verificacion]

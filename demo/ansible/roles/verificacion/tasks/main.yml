@@ -1,0 +1,38 @@
+# Comprueba que lo desplegado hace lo que dice el diseño. No cambia nada.
+
+- name: Red, segmentación y monitoreo (red/verificar.sh)
+  ansible.builtin.command: ./red/verificar.sh
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: verificar
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+  failed_when: verificar.rc != 0
+
+- name: Resultado de las pruebas
+  ansible.builtin.debug:
+    msg: "{{ verificar.stdout_lines | select('search', '^Resultado|FALLA') | list }}"
+
+- name: Ledger del agente íntegro
+  ansible.builtin.command: docker compose exec -T -u nodo analista consola ledger
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: ledger
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Grafana con el dashboard MiniSOC-IA
+  ansible.builtin.command: >-
+    docker compose exec -T grafana wget -qO- http://127.0.0.1:3000/api/dashboards/uid/minisoc
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: grafana
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+  failed_when: grafana.rc != 0 or (grafana.stdout | from_json).dashboard.title != 'MiniSOC-IA'
+
+- name: Listo
+  ansible.builtin.debug:
+    msg:
+      - "Grafana: http://127.0.0.1:3000 (dashboard MiniSOC-IA)"
+      - "Demo: ./demo.sh"

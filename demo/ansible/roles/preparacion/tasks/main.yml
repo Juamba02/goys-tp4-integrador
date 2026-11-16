@@ -1,0 +1,35 @@
+# Que haya Docker con Compose v2 y que el .env tenga todos los tokens.
+
+- name: Docker responde
+  ansible.builtin.command: docker version --format '{{ "{{" }}.Server.Version{{ "}}" }}'
+  register: docker_version
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Docker Compose v2 disponible
+  ansible.builtin.command: docker compose version --short
+  register: compose_version
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Versiones
+  ansible.builtin.debug:
+    msg: "Docker {{ docker_version.stdout }} · Compose {{ compose_version.stdout }}"
+
+# preparar.sh solo agrega las variables que faltan: si ya están todas, no cambia nada.
+- name: Generar los tokens que falten en .env
+  ansible.builtin.command: ./preparar.sh
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: preparar
+  changed_when: "' 0 variables nuevas' not in preparar.stdout"
+
+# Un token vacío deja a los servicios sin autenticación. Se cuentan, no se muestran.
+- name: Ningún token vacío
+  ansible.builtin.shell: grep -cE '^[A-Z_]+=$' .env || true
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: vacios
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+  failed_when: vacios.stdout | int > 0
