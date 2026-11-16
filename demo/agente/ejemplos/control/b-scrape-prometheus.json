@@ -1,0 +1,16 @@
+{
+  "incidente_id": "CTRL-B01",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-CTRL-B01-1", "regla_id": "R-T1046-conexiones-entrantes-repetidas", "tecnica": "T1046", "severidad": "media",
+     "descripcion": "Conexiones entrantes periódicas desde otro segmento", "eventos": ["EVT-CB01-1", "EVT-CB01-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-CB01-1", "ts": "2026-11-13T14:00:00Z", "host": "web-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.30.0.5", "ip_destino": "10.20.0.11", "puerto_destino": 9100, "protocolo": "tcp", "proceso_destino": "node_exporter"}},
+    {"evento_id": "EVT-CB01-2", "ts": "2026-11-13T14:00:15Z", "host": "web-01", "tipo": "log",
+     "datos": {"fuente": "node_exporter", "linea": "GET /metrics HTTP/1.1 200 user_agent=Prometheus/2.53.0", "ip_cliente": "10.30.0.5"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

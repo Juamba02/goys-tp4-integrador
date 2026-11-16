@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+# Ledger generado al correr el agente (la evidencia de la demo va a capturas/)
+datos/
+uv.lock
