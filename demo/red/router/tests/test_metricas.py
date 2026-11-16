@@ -20,8 +20,14 @@ SALIDA = """\
 :MINISOC-DENEGADO - [0:0]
 :MINISOC-PERMITIDO - [0:0]
 [5:300] -A INPUT -i lo -j ACCEPT
-[3:180] -A MINISOC-CONTENCION -s 10.99.0.66/32 -m comment --comment "ACC-1 bloquear_ip" -j DROP
-[0:0] -A MINISOC-CONTENCION -d 10.99.0.66/32 -m comment --comment "ACC-1 bloquear_ip" -j DROP
+[3:180] -A MINISOC-CONTENCION -s 10.99.0.66/32 -m comment --comment "minisoc ACC-0001 bloquear_ip" -j DROP
+[0:0] -A MINISOC-CONTENCION -d 10.99.0.66/32 -m comment --comment "minisoc ACC-0001 bloquear_ip" -j DROP
+[2:120] -A MINISOC-CONTENCION -s 10.10.0.0/24 -d 10.20.0.11/32 -p tcp -m tcp --dport 22 -m comment --comment "minisoc ACC-0002 aislar_host" -j RETURN
+[2:120] -A MINISOC-CONTENCION -s 10.20.0.11/32 -d 10.10.0.0/24 -p tcp -m tcp --sport 22 -m comment --comment "minisoc ACC-0002 aislar_host" -j RETURN
+[35:2100] -A MINISOC-CONTENCION -s 10.20.0.11/32 -d 10.30.0.10/32 -p tcp -m tcp --dport 8081 -m comment --comment "minisoc ACC-0002 aislar_host" -j RETURN
+[32:1920] -A MINISOC-CONTENCION -s 10.30.0.10/32 -d 10.20.0.11/32 -p tcp -m tcp --sport 8081 -m comment --comment "minisoc ACC-0002 aislar_host" -j RETURN
+[5:300] -A MINISOC-CONTENCION -s 10.20.0.11/32 -m comment --comment "minisoc ACC-0002 aislar_host" -j DROP
+[0:0] -A MINISOC-CONTENCION -d 10.20.0.11/32 -m comment --comment "minisoc ACC-0002 aislar_host" -j DROP
 [4:240] -A MINISOC-PERMITIDO -s 10.10.0.0/24 -d 10.20.0.0/24 -p tcp -m tcp --dport 22 -j ACCEPT
 [7:420] -A MINISOC-PERMITIDO -s 10.20.0.0/24 -d 10.30.0.10/32 -p tcp -m tcp --dport 8081 -j ACCEPT
 [2:120] -A MINISOC-PERMITIDO -s 10.99.0.0/24 -d 10.20.0.11/32 -p tcp -m tcp --dport 80 -j ACCEPT
@@ -41,12 +47,24 @@ def test_descartados_por_origen():
     assert c["descartados_bytes"]["otro"] == 120
 
 
-def test_permitidas_contencion_y_entrada():
+def test_permitidas_y_entrada():
     c = m.contadores(SALIDA)
     assert c["permitidas"] == {"gestion": 4, "servicios": 7, "soc": 0, "externo": 2, "otro": 0}
-    assert c["contencion_reglas"] == 2
-    assert c["contencion_paquetes"] == 3
     assert c["entrada_descartados"] == 17
+
+
+def test_contencion_cuenta_acciones_y_solo_paquetes_cortados():
+    """bloquear_ip (2 reglas) + aislar_host (6 reglas) son 2 contenciones; las RETURN
+    de aislar_host (SSH y telemetría que se dejan pasar) no cuentan como cortados."""
+    c = m.contadores(SALIDA)
+    assert c["contenciones_activas"] == 2
+    assert c["contencion_paquetes"] == 3 + 5
+
+
+def test_sin_contencion():
+    c = m.contadores(SALIDA.replace("-A MINISOC-CONTENCION", "-A OTRA"))
+    assert c["contenciones_activas"] == 0
+    assert c["contencion_paquetes"] == 0
 
 
 def test_reglas_reales_cuentan_cada_segmento():
@@ -61,7 +79,7 @@ def test_reglas_reales_cuentan_cada_segmento():
 def test_exponer_formato_prometheus():
     texto = m.exponer(lambda: SALIDA)
     assert 'minisoc_router_descartados_paquetes_total{origen="externo"} 9' in texto
-    assert "minisoc_router_contencion_reglas 2" in texto
+    assert "minisoc_router_contenciones_activas 2" in texto
     assert "minisoc_router_lectura_ok 1" in texto
     assert texto.endswith("\n")
 

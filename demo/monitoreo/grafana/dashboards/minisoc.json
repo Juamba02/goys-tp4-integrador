@@ -273,7 +273,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(minisoc_router_contencion_reglas)",
+          "expr": "sum(minisoc_router_contenciones_activas)",
           "refId": "A",
           "legendFormat": "",
           "instant": true,

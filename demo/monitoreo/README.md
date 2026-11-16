@@ -50,7 +50,7 @@ Tabla 1: qué lee Prometheus.
 
 | Objetivo | Dirección | Métricas principales |
 |---|---|---|
-| router | `10.30.0.254:9100` | `minisoc_router_descartados_paquetes_total{origen}`, `minisoc_router_contencion_reglas` |
+| router | `10.30.0.254:9100` | `minisoc_router_descartados_paquetes_total{origen}`, `minisoc_router_contenciones_activas` |
 | ingesta | `10.30.0.10:8081` | `minisoc_ingesta_eventos_total{host}`, `minisoc_ingesta_lotes_rechazados_total{motivo}` |
 | detección | `10.30.0.40:8082` | `minisoc_deteccion_alertas_total{regla,tecnica,severidad}` |
 | agente | `10.30.0.20:8088` | `minisoc_agente_evaluacion_total{resultado}`, `minisoc_agente_ledger_integro`, `minisoc_agente_evento_a_veredicto_segundos` |

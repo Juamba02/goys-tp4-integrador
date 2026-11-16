@@ -10,8 +10,8 @@ el formato de texto de Prometheus:
 | minisoc_router_descartados_paquetes_total        | origen: gestion, servicios, soc, externo, otro |
 | minisoc_router_descartados_bytes_total           | origen |
 | minisoc_router_conexiones_permitidas_total       | origen (conexiones nuevas aceptadas entre segmentos) |
-| minisoc_router_contencion_reglas                 | — (reglas activas que puso el respondedor) |
-| minisoc_router_contencion_paquetes_total         | — (paquetes que cortó la contención) |
+| minisoc_router_contenciones_activas              | — (acciones ACC-xxxx aplicadas, no reglas) |
+| minisoc_router_contencion_paquetes_total         | — (paquetes que cortó la contención: solo DROP) |
 | minisoc_router_entrada_descartados_paquetes_total| — (dirigidos al router mismo y descartados) |
 | minisoc_router_lectura_ok                        | 1 si iptables respondió, 0 si no |
 
@@ -44,6 +44,8 @@ REGLA = re.compile(r"^\[(\d+):(\d+)\] -A (\S+)(.*)$")
 POLITICA = re.compile(r"^:(\S+) (\S+) \[(\d+):(\d+)\]$")
 ORIGEN = re.compile(r"\s-s (\S+)")
 DESTINO_REGLA = re.compile(r"\s-j (\S+)")
+# Cada regla de contención lleva el comentario "minisoc ACC-0001 tipo" (contencion.py).
+ACCION = re.compile(r'--comment "?minisoc (ACC-\d+)')
 
 Leer = Callable[[], str]
 
@@ -69,8 +71,9 @@ def contadores(salida: str) -> dict:
     r = {
         "descartados_paquetes": dict(ceros), "descartados_bytes": dict(ceros),
         "permitidas": dict(ceros),
-        "contencion_reglas": 0, "contencion_paquetes": 0, "entrada_descartados": 0,
+        "contenciones_activas": 0, "contencion_paquetes": 0, "entrada_descartados": 0,
     }
+    acciones = set()
     contados_paq = contados_bytes = 0
     total_paq = total_bytes = 0
     for linea in salida.splitlines():
@@ -98,8 +101,14 @@ def contadores(salida: str) -> dict:
         elif cadena == "MINISOC-PERMITIDO" and destino and destino.group(1) == "ACCEPT":
             r["permitidas"][_segmento(origen.group(1) if origen else None)] += paq
         elif cadena == "MINISOC-CONTENCION":
-            r["contencion_reglas"] += 1
-            r["contencion_paquetes"] += paq
+            # Una acción son varias reglas (bloquear_ip 2, aislar_host 6): se cuentan acciones.
+            if accion := ACCION.search(resto):
+                acciones.add(accion.group(1))
+            # Las RETURN de aislar_host dejan pasar a propósito el SSH desde gestión y la
+            # telemetría: no son paquetes cortados.
+            if destino and destino.group(1) == "DROP":
+                r["contencion_paquetes"] += paq
+    r["contenciones_activas"] = len(acciones)
     r["descartados_paquetes"]["otro"] += max(0, total_paq - contados_paq)
     r["descartados_bytes"]["otro"] += max(0, total_bytes - contados_bytes)
     return r
@@ -127,10 +136,10 @@ def exponer(leer: Leer = leer_iptables) -> str:
         *por_origen("minisoc_router_conexiones_permitidas_total",
                     "Conexiones nuevas entre segmentos aceptadas por la política.",
                     c["permitidas"]),
-        "# HELP minisoc_router_contencion_reglas Reglas de contención activas (bloquear_ip, aislar_host).",
-        "# TYPE minisoc_router_contencion_reglas gauge",
-        f"minisoc_router_contencion_reglas {c['contencion_reglas']}",
-        "# HELP minisoc_router_contencion_paquetes_total Paquetes cortados por las reglas de contención.",
+        "# HELP minisoc_router_contenciones_activas Acciones de contención aplicadas (bloquear_ip, aislar_host).",
+        "# TYPE minisoc_router_contenciones_activas gauge",
+        f"minisoc_router_contenciones_activas {c['contenciones_activas']}",
+        "# HELP minisoc_router_contencion_paquetes_total Paquetes descartados por las reglas de contención.",
         "# TYPE minisoc_router_contencion_paquetes_total counter",
         f"minisoc_router_contencion_paquetes_total {c['contencion_paquetes']}",
         "# HELP minisoc_router_entrada_descartados_paquetes_total Paquetes al router mismo descartados.",
