@@ -244,6 +244,35 @@ services:
     networks:
       soc: {ipv4_address: 10.30.0.50}
 
+  # -------------------------------------------------------------- monitoreo
+  # Prometheus lee /metrics de los servicios del SOC y del router (monitoreo/).
+  # Está en el SOC para no cruzar el router: el agente no usa al router como
+  # gateway y no podría contestarle a otro segmento.
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus
+    hostname: prometheus
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoreo/prometheus:/etc/prometheus:ro
+      - prometheus-datos:/prometheus
+    networks:
+      soc: {ipv4_address: 10.30.0.60}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      retries: 12
+    restart: unless-stopped
+    depends_on:
+      router:
+        condition: service_healthy
+
   # ---------------------------------------------------------------- externo
   atacante:
     <<: *nodo
@@ -278,3 +307,5 @@ volumes:
   deteccion-datos:
   # Ledger del agente.
   agente-datos:
+  # Series de Prometheus (7 días).
+  prometheus-datos:

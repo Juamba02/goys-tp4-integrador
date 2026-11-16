@@ -51,7 +51,7 @@ done
 consola estado || morir "algún servicio del SOC no responde"
 
 paso "La red hace lo que dice el diseño" \
-     "31 pruebas: lo permitido llega, lo demás lo descarta el router, nadie sale a Internet."
+     "41 pruebas: lo permitido llega, lo demás lo descarta el router, nadie sale a Internet."
 ./red/verificar.sh | tail -2
 # Las pruebas (SSH desde web-01, salida a Internet) también disparan alertas, como
 # corresponde. Se espera a que ese incidente se cierre para no mezclarlo con el ataque.
