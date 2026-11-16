@@ -38,7 +38,9 @@ fi
 agregadas=0
 for v in "${VARIABLES[@]}"; do
     nombre=${v%%|*}; comentario=${v#*|}
-    # Una variable vacía (de una corrida anterior sin Python) se vuelve a generar.
+    # Una variable vacía (de una corrida anterior sin Python) se vuelve a generar. Se
+    # borra junto con su comentario, que el printf de abajo vuelve a escribir.
+    sed -i "/^# /{N;/\n${nombre}=$/d;P;D}" .env
     sed -i "/^${nombre}=$/d" .env
     if ! grep -q "^${nombre}=" .env; then
         valor=$(token)   # con set -e, si token falla el script termina acá
@@ -46,4 +48,5 @@ for v in "${VARIABLES[@]}"; do
         agregadas=$((agregadas + 1))
     fi
 done
+sed -i '/^$/N;/^\n$/D' .env   # sin líneas en blanco dobles donde se borró algo
 echo ".env listo: $agregadas variables nuevas, ${#VARIABLES[@]} en total"
