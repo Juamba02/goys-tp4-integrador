@@ -11,6 +11,8 @@
 #   espejo  10.10.0.5   web-01 10.20.0.11   ingesta 10.30.0.10
 #   ansible 10.10.0.10  api-01 10.20.0.12   agente  10.30.0.20
 #                       db-01  10.20.0.13   respondedor 10.30.0.30
+#                                           prometheus  10.30.0.60
+#                                           grafana     10.30.0.61
 
 *filter
 :INPUT DROP [0:0]
@@ -32,6 +34,8 @@
 -A INPUT -p icmp --icmp-type echo-request -s 10.30.0.0/24 -j ACCEPT
 # Servicio de contención: solo el respondedor, solo por la IP del router en el SOC.
 -A INPUT -s 10.30.0.30/32 -d 10.30.0.254/32 -p tcp --dport 9000 -j ACCEPT
+# Métricas del firewall (metricas.py): solo Prometheus, también por la IP del SOC.
+-A INPUT -s 10.30.0.60/32 -d 10.30.0.254/32 -p tcp --dport 9100 -j ACCEPT
 
 # --------------------------------------------------------- entre segmentos
 -A FORWARD -j MINISOC-CONTENCION
@@ -54,7 +58,14 @@
 -A MINISOC-PERMITIDO -s 10.99.0.0/24 -d 10.20.0.11/32 -p tcp --dport 80 -j ACCEPT
 
 # soc: no inicia conexiones hacia otros segmentos. Actúa sobre la red
-# a través del propio router (ver respondedor).
+# a través del propio router (ver respondedor). Prometheus también está en el
+# SOC: lee las métricas sin cruzar el router, así que no necesita reglas acá.
 
+# Reglas sin destino: solo cuentan lo descartado según el segmento de origen
+# (las lee metricas.py). El paquete sigue de largo hasta el DROP.
+-A MINISOC-DENEGADO -s 10.10.0.0/24
+-A MINISOC-DENEGADO -s 10.20.0.0/24
+-A MINISOC-DENEGADO -s 10.30.0.0/24
+-A MINISOC-DENEGADO -s 10.99.0.0/24
 -A MINISOC-DENEGADO -j DROP
 COMMIT
