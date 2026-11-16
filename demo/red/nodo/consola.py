@@ -45,6 +45,27 @@ def num(identificador: str) -> int:
     return int(identificador.split("-")[-1])
 
 
+def incidentes_desde(desde: int) -> list[dict]:
+    """Todos los incidentes con id mayor que `desde`, paginando: la API devuelve de a
+    100 y el volumen sobrevive a `docker compose down` (comentario de Tomás en el PR #4)."""
+    todos: list[dict] = []
+    while True:
+        pagina = pedir("GET", f"{DETECCION}/v1/incidentes?desde={desde}&limite=500")
+        if not pagina:
+            return todos
+        todos.extend(pagina)
+        desde = num(pagina[-1]["incidente_id"])
+
+
+def ultima_alerta() -> int:
+    desde = 0
+    while True:
+        r = pedir("GET", f"{DETECCION}/v1/alertas?desde={desde}&limite=5000")
+        if r["ultimo"] == desde:
+            return desde
+        desde = r["ultimo"]
+
+
 def cmd_estado() -> int:
     ok = True
     for nombre, url in (("ingesta", f"{INGESTA}/salud"), ("deteccion", f"{DETECCION}/salud"),
@@ -60,9 +81,8 @@ def cmd_estado() -> int:
 
 
 def cmd_ultimo() -> int:
-    alertas = pedir("GET", f"{DETECCION}/v1/alertas?desde=0&limite=5000")["ultimo"]
-    incidentes = pedir("GET", f"{DETECCION}/v1/incidentes?desde=0")
-    print(alertas, num(incidentes[-1]["incidente_id"]) if incidentes else 0)
+    incidentes = incidentes_desde(0)
+    print(ultima_alerta(), num(incidentes[-1]["incidente_id"]) if incidentes else 0)
     return 0
 
 
@@ -80,7 +100,7 @@ def cmd_alertas(desde: str) -> int:
 def cmd_esperar(host: str, desde: str, segundos: str = "90") -> int:
     limite = time.monotonic() + float(segundos)
     while time.monotonic() < limite:
-        for i in pedir("GET", f"{DETECCION}/v1/incidentes?desde={int(desde)}"):
+        for i in incidentes_desde(int(desde)):
             if i["host"] == host and i["estado"] in ("enviado", "rechazado"):
                 return _mostrar_veredicto(i)
         time.sleep(1)
@@ -140,8 +160,7 @@ def cmd_esperar_cerrados(segundos: str = "60") -> int:
     """Espera a que no quede ningún incidente abierto o pendiente de enviar."""
     limite = time.monotonic() + float(segundos)
     while time.monotonic() < limite:
-        if not [i for i in pedir("GET", f"{DETECCION}/v1/incidentes?desde=0")
-                if i["estado"] in ("abierto", "pendiente")]:
+        if not [i for i in incidentes_desde(0) if i["estado"] in ("abierto", "pendiente")]:
             return 0
         time.sleep(1)
     print(f"  {AMARILLO}quedan incidentes abiertos después de {segundos} s{FIN}")

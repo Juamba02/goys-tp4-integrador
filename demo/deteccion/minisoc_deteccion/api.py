@@ -77,9 +77,10 @@ def crear_servidor(detector: Detector, host: str, puerto: int,
                         return self._responder(404, {"error": "la correlación está desactivada"})
                     try:
                         desde = int(q.get("desde", ["0"])[0])
+                        limite = int(q.get("limite", ["100"])[0])
                     except ValueError:
-                        return self._responder(400, {"error": "'desde' debe ser entero"})
-                    incidentes = correlador.incidentes.listar(desde)
+                        return self._responder(400, {"error": "'desde' y 'limite' deben ser enteros"})
+                    incidentes = correlador.incidentes.listar(desde, limite)
                     for i in incidentes:
                         i["incidente_id"] = i["incidente_id"].replace("INC-", f"INC-{correlador.prefijo}-")
                     return self._responder(200, incidentes)

@@ -9,7 +9,7 @@ lenguaje local y lo contiene en la red **solo después de que lo aprueba una per
  atacante   ┌─────────────────────┐   telemetría   ┌─────────────────────────────────────────┐
  10.99.0.66 │ web-01  api-01 db-01├───────────────▶│ ingesta → detección → correlación       │
   ───80───▶ │  (sensor en c/u)    │                │                          │              │
-            └─────────────────────┘                │                    agente IA (PR #2)    │
+            └─────────────────────┘                │                    agente IA            │
                      ▲                             │                          │              │
                      │ bloqueo / aislamiento       │   analista ──aprueba──▶ acción          │
               ┌──────┴──────┐  contención :9000    │                          │              │
@@ -19,21 +19,18 @@ lenguaje local y lo contiene en la red **solo después de que lo aprueba una per
 
 ## La demo en 3 minutos
 
-Primero hay que construir, una sola vez, la imagen del agente desde la rama de Joaquín:
-
-```bash
-git worktree add ../agente-ia-ledger origin/agente-ia-ledger
-docker build -t minisoc/agente:joaquin ../agente-ia-ledger/demo/agente
-```
-
-Cuando el PR #2 esté mergeado, el agente va a estar en el compose y este paso deja de
-hacer falta. Después, desde `demo/`:
+Desde `demo/`:
 
 ```bash
 ./demo.sh          # paso a paso: se detiene antes de cada paso para explicarlo
 ./demo.sh --auto   # todo seguido, para ensayar
 ./demo.sh --bajar  # baja todo
 ```
+
+El agente usa por defecto el modelo simulado, que funciona sin GPU y sin descargar
+nada. Para usar Llama, levantá Ollama con el modelo ya descargado y corré
+`LLM_BACKEND=ollama OLLAMA_URL=http://<ollama>:11434 ./demo.sh`. Los detalles están en
+[`agente/README.md`](agente/README.md).
 
 Tabla 1: los 11 pasos de la demo.
 
@@ -58,7 +55,7 @@ Tabla 1: los 11 pasos de la demo.
 | [`red/`](red/README.md) | Segmentos, router con firewall, sensor, simulador de ataques | `verificar.sh`: 31 pruebas |
 | [`ingesta/`](ingesta/README.md) | Recibe, valida y normaliza la telemetría (`10.30.0.10:8081`) | 25 tests |
 | [`deteccion/`](deteccion/README.md) | 9 reglas MITRE y correlación en incidentes (`10.30.0.40:8082`) | 34 tests |
-| `agente/` (PR #2) | Triage con LLM local, aprobación humana y ledger (`10.30.0.20:8088`) | de Joaquín |
+| [`agente/`](agente/README.md) | Triage con LLM local, aprobación humana y ledger (`10.30.0.20:8088`) | de Joaquín |
 | [`respondedor/`](respondedor/README.md) | Aplica en el router lo que aprobó el analista (`10.30.0.30`) | 9 + 21 tests |
 
 Scripts: `preparar.sh` genera los tokens en `.env`; `simular.sh` corre un escenario;

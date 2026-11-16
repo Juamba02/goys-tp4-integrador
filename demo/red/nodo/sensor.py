@@ -20,6 +20,7 @@ tiene ese problema, pero necesita privilegios sobre el kernel del host.
 from __future__ import annotations
 
 import http.client
+import itertools
 import json
 import os
 import pwd
@@ -38,6 +39,9 @@ INGESTA_URL = os.environ.get("INGESTA_URL", "http://10.30.0.10:8081/v1/eventos")
 TOKEN = os.environ.get("SENSOR_TOKEN", "")
 DEBUG = os.environ.get("SENSOR_DEBUG", "") == "1"
 MAX_PENDIENTES = 5000
+MAX_LOTE = 1000            # la ingesta acepta hasta 2000 eventos y 2 MB por lote
+MAX_LOTES_POR_ENVIO = 10   # una cola llena (5000) se vacía en un solo ciclo de envío
+MAX_CMDLINE = 2000         # la ingesta trunca igual; cortarlo acá achica el lote
 PUERTOS_PROPIOS = {int(p) for p in os.environ.get("PUERTOS", "").split()}
 YO = os.getpid()
 
@@ -81,7 +85,7 @@ def leer_proceso(pid: int) -> dict | None:
         return None  # zombi: ya terminó, solo espera que el padre lo recoja
     ppid = int(campos[1])
     crudo = _leer(f"/proc/{pid}/cmdline", binario=True) or b""
-    cmdline = crudo.rstrip(b"\0").replace(b"\0", b" ").decode(errors="replace")
+    cmdline = crudo.rstrip(b"\0").replace(b"\0", b" ").decode(errors="replace")[:MAX_CMDLINE]
     uid = None
     for linea in (_leer(f"/proc/{pid}/status") or "").splitlines():
         if linea.startswith("Uid:"):
@@ -114,6 +118,7 @@ class Sensor:
         self.conexiones: set[tuple] = set()
         self.pendientes: deque = deque(maxlen=MAX_PENDIENTES)
         self.descartados = 0
+        self.tam_lote = MAX_LOTE
         self.ingesta_ok = True
         destino = urllib.request.urlparse(INGESTA_URL)
         self.ingesta = (socket.gethostbyname(destino.hostname), destino.port or 80)
@@ -216,28 +221,52 @@ class Sensor:
             })
         self.conexiones = actuales
 
-    def enviar(self) -> None:
-        if not self.pendientes:
-            return
-        lote = list(self.pendientes)
+    def _post(self, lote: list[dict]) -> int:
+        """Manda un lote. Devuelve el código HTTP (0 si no hubo respuesta)."""
         cuerpo = json.dumps({"sensor": HOST, "descartados": self.descartados, "eventos": lote}).encode()
         pedido = urllib.request.Request(INGESTA_URL, cuerpo, {"Content-Type": "application/json"})
         if TOKEN:
             pedido.add_header("Authorization", f"Bearer {TOKEN}")
         try:
-            with urllib.request.urlopen(pedido, timeout=3):
-                pass
+            with urllib.request.urlopen(pedido, timeout=3) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
         except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
             if self.ingesta_ok:
                 print(f"sensor: ingesta no disponible ({e}); los eventos quedan en espera", file=sys.stderr, flush=True)
                 self.ingesta_ok = False
-            return
-        if not self.ingesta_ok:
-            print("sensor: ingesta disponible otra vez", file=sys.stderr, flush=True)
-            self.ingesta_ok = True
-        for _ in lote:
-            self.pendientes.popleft()
-        self.descartados = 0
+            return 0
+
+    def enviar(self) -> None:
+        """Vacía la cola en lotes. La ingesta rechaza más de 2000 eventos o 2 MB por
+        lote: se manda de a MAX_LOTE y, si igual responde 413, el lote se parte."""
+        for _ in range(MAX_LOTES_POR_ENVIO):
+            if not self.pendientes:
+                return
+            lote = list(itertools.islice(self.pendientes, self.tam_lote))
+            codigo = self._post(lote)
+            if codigo == 413:
+                if len(lote) == 1:
+                    # Un evento que solo ya es demasiado grande: se descarta y se cuenta,
+                    # para que no trabe la cola para siempre.
+                    self.pendientes.popleft()
+                    self.descartados += 1
+                    print("sensor: un evento excede el tamaño máximo de la ingesta; descartado", file=sys.stderr, flush=True)
+                else:
+                    self.tam_lote = max(1, len(lote) // 2)
+                continue
+            if not 200 <= codigo < 300:
+                if codigo:
+                    print(f"sensor: la ingesta respondió {codigo}; los eventos quedan en espera", file=sys.stderr, flush=True)
+                return
+            if not self.ingesta_ok:
+                print("sensor: ingesta disponible otra vez", file=sys.stderr, flush=True)
+                self.ingesta_ok = True
+            for _ in lote:
+                self.pendientes.popleft()
+            self.descartados = 0
+            self.tam_lote = min(MAX_LOTE, self.tam_lote * 2)  # vuelve a crecer de a poco
 
 
 def main() -> None:

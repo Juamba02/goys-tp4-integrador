@@ -11,8 +11,6 @@ cd "$(dirname "$0")"
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no convertir rutas tipo /usr/...
 
 if [[ "${1:-}" == "--bajar" ]]; then
-    # El agente levantado aparte ocupa la red SOC: sin sacarlo, `down` no puede borrarla.
-    docker rm -f agente >/dev/null 2>&1
     exec docker compose down
 fi
 AUTO=0; [[ "${1:-}" == "--auto" ]] && AUTO=1
@@ -38,38 +36,19 @@ morir() { echo -e "${R}$1${F}" >&2; exit 1; }
 [[ -f .env ]] || ./preparar.sh
 set -a; . ./.env; set +a
 
-asegurar_agente() {
-    # El agente (PR #2) todavía no está en el compose: si no responde, se levanta
-    # desde la imagen minisoc/agente:joaquin con los tokens del .env.
-    consola estado >/dev/null 2>&1 && return 0
-    if docker compose config --services 2>/dev/null | grep -qx agente; then
-        docker compose up -d agente >/dev/null
-    elif docker image inspect minisoc/agente:joaquin >/dev/null 2>&1; then
-        docker rm -f agente >/dev/null 2>&1
-        docker run -d --name agente --hostname agente --network minisoc_soc --ip 10.30.0.20 \
-            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
-            -v minisoc_agente-datos:/datos -e LLM_BACKEND="${LLM_BACKEND:-simulado}" \
-            -e ANALISTA_TOKEN="$ANALISTA_TOKEN" -e RESPONDEDOR_TOKEN="$RESPONDEDOR_TOKEN" \
-            minisoc/agente:joaquin >/dev/null || return 1
-    else
-        morir "No encuentro el agente. Construí la imagen desde la rama agente-ia-ledger:
-   docker build -t minisoc/agente:joaquin <checkout de agente-ia-ledger>/demo/agente"
-    fi
-    for _ in $(seq 1 20); do consola estado >/dev/null 2>&1 && return 0; sleep 1; done
-    return 1
-}
-
 echo -e "${N}MiniSOC-IA${F} — centro de operaciones de seguridad asistido por IA"
 echo -e "${G}Grupo 13 · GOYS · UTN FR La Plata${F}"
 
 paso "Levantar el laboratorio" \
      "Cuatro segmentos (gestión, servicios, SOC, externo) unidos por un router con firewall."
 docker compose up -d --build 2>&1 | grep -iE "error" && morir "falló docker compose up"
-for _ in $(seq 1 30); do
-    [[ $(docker compose ps --format '{{.Health}}' | grep -c healthy) -ge 4 ]] && break; sleep 1
+# Router, ingesta, detección, agente y respondedor tienen healthcheck. `-x`: que no
+# cuente los "unhealthy" (comentario de Tomás en el PR #4).
+CON_HEALTHCHECK=$(docker compose ps --format '{{.Health}}' | grep -cv '^$')
+for _ in $(seq 1 60); do
+    [[ $(docker compose ps --format '{{.Health}}' | grep -cx healthy) -ge $CON_HEALTHCHECK ]] && break; sleep 1
 done
-asegurar_agente || morir "el agente no arrancó"
-consola estado
+consola estado || morir "algún servicio del SOC no responde"
 
 paso "La red hace lo que dice el diseño" \
      "31 pruebas: lo permitido llega, lo demás lo descarta el router, nadie sale a Internet."

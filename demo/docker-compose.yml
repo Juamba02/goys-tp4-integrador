@@ -132,7 +132,6 @@ services:
       servicios: {ipv4_address: 10.20.0.13}
 
   # -------------------------------------------------------------------- SOC
-  # El agente de triage (demo/agente, PR #2) va en 10.30.0.20:8088.
   ingesta:
     build: ./ingesta
     image: minisoc/ingesta:dev
@@ -155,6 +154,32 @@ services:
     depends_on:
       router:
         condition: service_healthy
+
+  # Agente de triage (demo/agente, de Joaquín). Por defecto usa el modelo simulado,
+  # que corre offline y sin GPU. Para usar Llama: LLM_BACKEND=ollama y OLLAMA_URL
+  # apuntando a un Ollama con el modelo ya descargado (ver demo/agente/README.md).
+  agente:
+    build: ./agente
+    image: minisoc/agente:dev
+    container_name: agente
+    hostname: agente
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      LLM_BACKEND: ${LLM_BACKEND:-simulado}
+      OLLAMA_URL: ${OLLAMA_URL:-http://127.0.0.1:11434}
+      OLLAMA_MODELO: ${OLLAMA_MODELO:-llama3.1:8b}
+      INGESTA_TOKEN: ${INGESTA_TOKEN:-}
+      ANALISTA_TOKEN: ${ANALISTA_TOKEN:-}
+      RESPONDEDOR_TOKEN: ${RESPONDEDOR_TOKEN:-}
+      LEDGER_CLAVE: ${LEDGER_CLAVE:-}
+    volumes:
+      - agente-datos:/datos
+    networks:
+      soc: {ipv4_address: 10.30.0.20}
+    restart: unless-stopped
 
   deteccion:
     build: ./deteccion
@@ -251,3 +276,5 @@ volumes:
   ingesta-datos:
   # Alertas y cursor de lectura de la detección.
   deteccion-datos:
+  # Ledger del agente.
+  agente-datos:

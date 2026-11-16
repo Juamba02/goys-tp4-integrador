@@ -176,6 +176,66 @@ def test_reinicio_retoma_y_no_reenvia(tmp_path):
     assert corr2.prefijo == prefijo
 
 
+def _agente():
+    """El código del agente de Joaquín (demo/agente), para medir el prompt real."""
+    import sys
+    from pathlib import Path
+    ruta = str(Path(__file__).resolve().parents[2] / "agente")
+    if ruta not in sys.path:
+        sys.path.insert(0, ruta)
+    from minisoc_agente import llm, triage
+    return llm, triage
+
+
+@pytest.mark.parametrize("escenario,host", [
+    ("webshell", "web-01"), ("movimiento-lateral", "web-01"), ("movimiento-lateral", "db-01"),
+    ("reverse-shell", "api-01"), ("actualizacion", "web-01"), ("firmas", "db-01"), ("pruebas_de_red", "web-01"),
+])
+def test_cada_incidente_entra_en_el_contexto_del_modelo(armado, escenario, host):
+    # Comentario de Joaquín en el PR #4: con 40 eventos, la webshell no entraba en num_ctx.
+    llm, triage = _agente()
+    detector, corr, reloj, agente = armado
+    detectar(detector, escenario)
+    corr.ciclo()
+    reloj.t += 30
+    corr.ciclo()
+    inc = next(i for i in agente.recibidos if i["host"] == host)
+    triage.validar_incidente(inc)  # cumple el contrato del agente
+    tokens = llm.Ollama("http://x", "m").tokens_estimados(triage.construir_mensajes(inc))
+    assert tokens <= llm.CONTEXTO_POR_DEFECTO - llm.RESERVA_RESPUESTA
+
+
+def test_contexto_limitado_por_tamaño_y_citados_siempre(armado, monkeypatch):
+    import json
+    from minisoc_deteccion import correlacion
+    monkeypatch.setattr(correlacion, "MAX_CARACTERES", 4500)
+    detector, corr, reloj, agente = armado
+    detectar(detector, "webshell")
+    corr.ciclo()
+    reloj.t += 30
+    corr.ciclo()
+    inc = agente.recibidos[0]
+    citados = {e for a in inc["alertas"] for e in a["eventos"]}
+    assert citados <= {e["evento_id"] for e in inc["eventos"]}
+    assert len(json.dumps(inc, ensure_ascii=False, separators=(",", ":"))) <= 4500
+
+
+def test_analizando_no_se_toma_como_veredicto(armado):
+    # Comentario de Joaquín en el PR #4: un 200 con "estado": "analizando" no es un veredicto.
+    detector, corr, reloj, agente = armado
+    agente.respuestas = [(200, {"incidente_id": "x", "estado": "analizando"}), (200, {"veredicto": "malicioso"})]
+    detectar(detector, "reverse-shell")
+    corr.ciclo()
+    reloj.t += 30
+    corr.ciclo()
+    assert corr.incidentes.contar() == {"pendiente": 1}
+    reloj.t += 2
+    corr.ciclo()
+    assert corr.incidentes.contar() == {"enviado": 1}
+    assert agente.recibidos[0] == agente.recibidos[1]
+    assert "minisoc_correlacion_veredictos_total{veredicto=\"malicioso\"} 1" in corr.metricas()
+
+
 def test_sin_contexto_van_los_eventos_citados(armado):
     detector, corr, reloj, agente = armado
 

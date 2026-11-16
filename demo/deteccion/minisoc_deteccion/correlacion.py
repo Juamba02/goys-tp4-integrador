@@ -28,8 +28,13 @@ from .incidentes import AlmacenIncidentes, incidente_id
 
 log = logging.getLogger("minisoc_deteccion.correlacion")
 
-MAX_EVENTOS = 40          # tope de eventos por incidente (los citados por alertas siempre van)
-MARGEN_CONTEXTO = 15      # cuántos ids antes y después mirar para el contexto
+# El incidente tiene que entrar en el contexto del modelo: el agente fija num_ctx en
+# 4096 tokens y reserva 1024 para la respuesta (comentario de Joaquín en el PR #4).
+# Se limita por tamaño y no por cantidad: los eventos citados por alertas van siempre,
+# y los de contexto se suman, del más cercano al más lejano, mientras el JSON compacto
+# del incidente no pase de MAX_CARACTERES.
+MAX_CARACTERES = 5500
+MARGEN_CONTEXTO = 5       # cuántos ids antes y después mirar para el contexto
 CAMPOS_ALERTA = ("alerta_id", "regla_id", "tecnica", "severidad", "descripcion", "eventos")
 CAMPOS_EVENTO = ("evento_id", "ts", "host", "tipo", "datos")
 
@@ -116,24 +121,41 @@ class Correlador:
         for a in alertas:
             citados.setdefault(a["evento"]["evento_id"], a["evento"])
         host = alertas[0]["host"]
-        eventos = dict(citados)
-        if self.contexto:
-            numeros = [_num(e) for e in citados]
-            try:
-                for e in self.contexto(host, max(min(numeros) - MARGEN_CONTEXTO - 1, 0), max(numeros) + MARGEN_CONTEXTO):
-                    if len(eventos) >= MAX_EVENTOS:
-                        break
-                    eventos.setdefault(e["evento_id"], e)
-            except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
-                log.warning("sin contexto para %s (%s): van solo los eventos citados", self.id_publico(iid), e)
-        return {
+        eventos = {eid: {k: e[k] for k in CAMPOS_EVENTO} for eid, e in citados.items()}
+        incidente = {
             "incidente_id": self.id_publico(iid),
             "host": host,
             "segmento": alertas[0]["segmento"],
             "alertas": [{k: a[k] for k in CAMPOS_ALERTA} for a in alertas],
-            "eventos": [{k: e[k] for k in CAMPOS_EVENTO} for e in
-                        sorted(eventos.values(), key=lambda e: _num(e["evento_id"]))],
+            "eventos": [],
         }
+
+        def ordenados() -> list[dict]:
+            return sorted(eventos.values(), key=lambda e: _num(e["evento_id"]))
+
+        def tamaño() -> int:
+            return len(json.dumps({**incidente, "eventos": ordenados()}, ensure_ascii=False, separators=(",", ":")))
+
+        if tamaño() > MAX_CARACTERES:
+            log.warning("%s: los eventos citados ya ocupan %d caracteres (máximo %d); va sin contexto",
+                        incidente["incidente_id"], tamaño(), MAX_CARACTERES)
+        elif self.contexto:
+            numeros = [_num(e) for e in citados]
+            try:
+                candidatos = self.contexto(host, max(min(numeros) - MARGEN_CONTEXTO - 1, 0), max(numeros) + MARGEN_CONTEXTO)
+            except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+                log.warning("sin contexto para %s (%s): van solo los eventos citados", incidente["incidente_id"], e)
+                candidatos = []
+            # Primero los más cercanos a algún evento citado.
+            candidatos.sort(key=lambda e: min(abs(_num(e["evento_id"]) - n) for n in numeros))
+            for e in candidatos:
+                if e["evento_id"] in eventos:
+                    continue
+                eventos[e["evento_id"]] = {k: e[k] for k in CAMPOS_EVENTO}
+                if tamaño() > MAX_CARACTERES:
+                    del eventos[e["evento_id"]]
+        incidente["eventos"] = ordenados()
+        return incidente
 
     def alertas_ordenadas(self, iid: int) -> list[dict[str, Any]]:
         return sorted(self.incidentes.alertas_de(iid), key=lambda a: a["alerta_id"])
@@ -161,7 +183,13 @@ class Correlador:
         except ErrorEnvio as e:
             self._reintentar(iid, incidente, intentos, ahora, f"sin respuesta del agente: {e}")
             return
-        if codigo in (200, 201):
+        if codigo in (200, 201) and not (isinstance(cuerpo, dict) and cuerpo.get("veredicto")):
+            # 200 con {"estado": "analizando"}: un envío anterior se cortó, pero el agente
+            # sigue analizando. Se reintenta con el mismo contenido hasta que devuelva el
+            # veredicto (comentario de Joaquín en el PR #4).
+            self._reintentar(iid, incidente, intentos, ahora,
+                             f"el agente todavía está analizando ({cuerpo.get('estado') if isinstance(cuerpo, dict) else cuerpo})")
+        elif codigo in (200, 201):
             self.incidentes.marcar(iid, "enviado", enviado=incidente, respuesta=cuerpo)
             with self._lock:
                 v = cuerpo.get("veredicto", "?") if isinstance(cuerpo, dict) else "?"
