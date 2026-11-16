@@ -1,0 +1,16 @@
+{
+  "incidente_id": "EVAL-B03",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-B03-1", "regla_id": "R-T1059-shell-desde-web", "tecnica": "T1059", "severidad": "alta",
+     "descripcion": "Proceso del servidor web lanzó un intérprete de comandos", "eventos": ["EVT-B03-1", "EVT-B03-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-B03-1", "ts": "2026-11-13T13:31:00Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "php-fpm", "proceso": "/bin/sh", "usuario": "www-data", "cmdline": "sh -c '/usr/bin/convert /var/www/uploads/foto-4812.jpg -resize 320x240 /var/www/uploads/thumbs/foto-4812.jpg'"}},
+    {"evento_id": "EVT-B03-2", "ts": "2026-11-13T13:31:00Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "sh", "proceso": "/usr/bin/convert", "usuario": "www-data", "cmdline": "/usr/bin/convert /var/www/uploads/foto-4812.jpg -resize 320x240 /var/www/uploads/thumbs/foto-4812.jpg"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

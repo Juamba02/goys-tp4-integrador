@@ -1,0 +1,191 @@
+# Agente de IA y ledger — MiniSOC-IA
+
+Etapa 4 del pipeline (triage con IA) y la trazabilidad del SOC.
+Responsable: Joaquín Mazza.
+
+El agente recibe un incidente ya correlacionado y le pide a un **LLM local**
+(Ollama) un veredicto con evidencia. Después **verifica la respuesta del modelo**
+contra el incidente y deja **cada paso en un ledger encadenado por hash**. Las
+acciones de contención que propone quedan pendientes hasta que un analista las
+aprueba.
+
+El contrato con el resto del grupo (formato del incidente, del veredicto,
+endpoints y métricas) está en [CONTRATO.md](CONTRATO.md).
+
+## Cómo funciona
+
+```
+incidente ─▶ validar contrato ─▶ prompt ─▶ LLM local ─▶ validar respuesta ─▶ veredicto
+   (Juan)                                   (Ollama)          │                 │
+                                                              │                 ▼
+                          ledger.jsonl ◀── cada paso ─────────┘      acciones "pendiente"
+                                                                              │
+                                     analista: aprobar / rechazar ◀───────────┘
+                                                  │
+                         respondedor de red (Juan) aplica y avisa "ejecutada"
+```
+
+### Qué controla el agente sobre la respuesta del modelo
+
+| Riesgo | Control | Resultado |
+|--------|---------|-----------|
+| El modelo cita eventos que no existen | Cada ID de `evidencia` se busca en el incidente | Se descarta y el incidente pasa a revisión humana (`evidencia_inexistente`) |
+| Propone actuar sobre algo ajeno al incidente | El host tiene que ser el del incidente; la IP tiene que figurar como valor en algún evento | Se descarta (`objetivo_no_presente`) |
+| Propone bloquear una IP propia (gestión, SOC, un servidor) | `bloquear_ip` no se acepta sobre las redes protegidas | Se descarta (`objetivo_protegido`) |
+| Propone aislar infraestructura (router, Ansible, el SOC) | `aislar_host` no se acepta sobre los hosts protegidos | Se descarta (`objetivo_protegido`) |
+| Alguien inyecta incidentes armados | `POST /incidentes` pide `INGESTA_TOKEN`, y en la red el 8088 solo se alcanza desde el segmento SOC | Rechazado (401) |
+| Un reenvío trae alertas nuevas que se perderían | Se compara un hash del contenido con el del primer envío | Rechazado (409) para que la ingesta lo mande como incidente nuevo |
+| Descarta un ataque real | Un veredicto benigno sobre alertas altas o críticas no se cierra solo | Revisión humana (`descarte_de_alerta_grave`) |
+| Inventa acciones | Solo existen `aislar_host` y `bloquear_ip`, cada una con su reversión | Se descarta (`accion_no_permitida`) |
+| Inyección de prompt en logs | Los eventos van marcados como datos; el prompt lo aclara; los controles de arriba igual aplican | Ver `ejemplos/incidente-inyeccion.json` |
+| Respuesta rota o modelo caído | Parseo estricto | Veredicto `indeterminado` y revisión humana |
+| Actuar sin supervisión | Las acciones nacen `pendiente`; aprobar pide `ANALISTA_TOKEN` y ejecutar pide `RESPONDEDOR_TOKEN` (son distintos) | Nada toca la red sin una persona |
+| Alterar el historial | Ledger append-only con hash encadenado (HMAC si se define `LEDGER_CLAVE`) | `GET /ledger/verificar` y la métrica `minisoc_agente_ledger_integro` lo detectan |
+
+La etiqueta `etiqueta_esperada` de los incidentes sintéticos **no se le muestra
+al modelo**. Solo sirve para contar verdaderos y falsos positivos.
+
+## Correrlo
+
+Requisitos: Python ≥ 3.11 (o [uv](https://docs.astral.sh/uv/)). No usa
+dependencias externas en tiempo de ejecución.
+
+```bash
+cd demo/agente
+uv run pytest                      # tests
+```
+
+Con el modelo simulado (no necesita Ollama):
+
+```bash
+LLM_BACKEND=simulado ANALISTA_TOKEN=demo-a RESPONDEDOR_TOKEN=demo-r uv run python -m minisoc_agente
+```
+
+Con el LLM real (por defecto Llama 3.1 8B; ver la sección siguiente):
+
+```bash
+ollama pull llama3.1:8b            # una sola vez, con Internet (~4,9 GB)
+ollama pull llama3.2:3b            # plan B más liviano (~2 GB)
+ANALISTA_TOKEN=demo-a RESPONDEDOR_TOKEN=demo-r uv run python -m minisoc_agente
+```
+
+El modelo se precarga al arrancar el agente; la primera carga puede tardar más de
+un minuto. Para usar el 3B: `OLLAMA_MODELO=llama3.2:3b`.
+
+## Máquina de la demo y elección del modelo
+
+La demo va a correr en una notebook con **i7 de 10.ª generación, GTX 1660 Ti
+(6 GB de VRAM, a confirmar) y 16 GB de RAM**. Las mediciones de
+[RESULTADOS.md](RESULTADOS.md) se hicieron en otra máquina (RTX 3070, 8 GB).
+
+| | Llama 3.1 8B (por defecto) | Llama 3.2 3B (plan B) |
+|---|---|---|
+| Memoria de video | ~5,5 GB con contexto de 4096: entra justo en 6 GB | ~2–3 GB: entra holgado |
+| Velocidad esperable en la 1660 Ti | Más lento que en la 3070; si no entra entero en la GPU, parte va a la CPU y puede pasar los 10 s por incidente | Pocos segundos |
+| Calidad medida | Detectó los 2 ataques del conjunto de control | No detectó ninguno de los 2 |
+
+**Usar el 8B** salvo que en la notebook tarde más de ~15 s por incidente; en ese
+caso, el 3B. Con cualquiera de los dos los errores van a revisión humana (0 errores
+sin revisión en las mediciones), así que la demo es segura igual: con el 3B solo
+hay más incidentes que terminan en el analista.
+
+Antes de la Feria, en la notebook:
+
+1. Confirmar la placa: `nvidia-smi` tiene que mostrar la GTX 1660 Ti con ~6144 MiB.
+2. Instalar Ollama y bajar los dos modelos (comandos de arriba), con Internet.
+3. Medir la latencia con el 8B; si es alta, repetir con el 3B y elegir:
+
+   ```bash
+   uv run python -m minisoc_agente.evaluar ejemplos/*.json ejemplos/evaluacion
+   uv run python -m minisoc_agente.evaluar ejemplos/*.json ejemplos/evaluacion --modelo llama3.2:3b
+   ```
+
+4. Con el agente corriendo, `ollama ps` debe mostrar el modelo **100% GPU**. Si
+   muestra un porcentaje en CPU, el modelo no entró entero: cerrar programas que
+   usen la GPU (navegador con aceleración, juegos) o bajar `OLLAMA_CONTEXTO`.
+
+El agente fija el contexto del modelo en 4096 tokens (`OLLAMA_CONTEXTO`) para que
+Ollama no reserve más memoria de video de la necesaria. El incidente va en JSON
+compacto: los de ejemplo usan ~1.200–1.450 tokens y los que arma la correlación con
+17 eventos de contexto, hasta ~3.000: muy cerca del límite (~3.070), por eso la correlación también tiene que acotar el contexto. Si un incidente no entra, el agente no consulta al
+modelo (Ollama recortaría en silencio las instrucciones) y lo manda a revisión
+humana.
+
+En otra terminal, como analista:
+
+```bash
+export ANALISTA_TOKEN=demo-a
+uv run python -m minisoc_agente.cli enviar ejemplos/incidente-webshell.json
+uv run python -m minisoc_agente.cli acciones --estado pendiente
+uv run python -m minisoc_agente.cli aprobar ACC-0001 --analista jmazza
+uv run python -m minisoc_agente.cli ledger
+uv run python -m minisoc_agente.cli verificar
+```
+
+El respondedor de red marca la acción como aplicada:
+
+```bash
+curl -X POST -H "Authorization: Bearer demo-r" -d '{"resultado":"ok"}' http://127.0.0.1:8088/acciones/ACC-0001/ejecutada
+```
+
+Medir aciertos, errores y latencia contra los incidentes etiquetados (resultados
+en [RESULTADOS.md](RESULTADOS.md)):
+
+```bash
+uv run python -m minisoc_agente.evaluar ejemplos/*.json ejemplos/evaluacion --repeticiones 3
+uv run python -m minisoc_agente.evaluar ejemplos/control --repeticiones 3
+```
+
+Verificar un ledger sin levantar el servidor:
+
+```bash
+uv run python -m minisoc_agente.ledger datos/ledger.jsonl
+```
+
+## Configuración
+
+| Variable | Default | Para qué |
+|----------|---------|----------|
+| `AGENTE_HOST` / `AGENTE_PUERTO` | `127.0.0.1` / `8088` | Dónde escucha la API |
+| `LLM_BACKEND` | `ollama` | `ollama` o `simulado` |
+| `OLLAMA_URL` / `OLLAMA_MODELO` | `http://127.0.0.1:11434` / `llama3.1:8b` | Modelo local |
+| `OLLAMA_TIMEOUT` | `120` | Segundos máximos por consulta |
+| `OLLAMA_CONTEXTO` | `4096` | Tamaño de contexto (`num_ctx`); limita la memoria de video que usa el modelo |
+| `UMBRAL_CONFIANZA` | `0.6` | Por debajo, el incidente va a revisión humana |
+| `CONTEXTO_RED_ARCHIVO` | vacío (contexto del laboratorio) | Texto con los segmentos y servidores conocidos que se le da al modelo |
+| `REDES_PROTEGIDAS` | `10.10.0.0/24,10.20.0.0/24,10.30.0.0/24` | Redes sobre las que no se acepta `bloquear_ip` |
+| `HOSTS_PROTEGIDOS` | `router,ansible,espejo,ingesta,deteccion,agente,respondedor,analista` | Hosts (contenedores) sobre los que no se acepta `aislar_host`; la misma lista que el router |
+| `INGESTA_TOKEN` | vacío | Si se define, `POST /incidentes` lo pide; la CLI lo toma de la misma variable |
+| `LEDGER_RUTA` | `datos/ledger.jsonl` | Archivo del ledger |
+| `LEDGER_CLAVE` | vacío | Si se define, el hash es HMAC-SHA-256 |
+| `ANALISTA_TOKEN` | vacío | Sin él, nadie puede aprobar |
+| `RESPONDEDOR_TOKEN` | vacío | Sin él, nadie puede marcar como ejecutada |
+
+Los tokens y la clave van por variable de entorno (o Ansible Vault); nunca al repo.
+
+## Archivos
+
+| Archivo | Qué hace |
+|---------|----------|
+| `minisoc_agente/triage.py` | Contrato del incidente, prompt y validación de la respuesta |
+| `minisoc_agente/llm.py` | Cliente de Ollama y modelo simulado |
+| `minisoc_agente/ledger.py` | Ledger encadenado y verificación |
+| `minisoc_agente/servicio.py` | Orquestación, estados de las acciones y reconstrucción desde el ledger |
+| `minisoc_agente/api.py` | API HTTP |
+| `minisoc_agente/metricas.py` | Métricas para Prometheus |
+| `minisoc_agente/cli.py` | CLI del analista |
+| `minisoc_agente/evaluar.py` | Evaluación contra incidentes etiquetados |
+| `ejemplos/` | Incidentes sintéticos: webshell, actualización de firmas e inyección de prompt; `evaluacion/` (9 más) y `control/` (4 que no se usaron para ajustar el prompt) |
+| `RESULTADOS.md` | Resultados con Llama 3.2 3B y Llama 3.1 8B |
+| `Dockerfile` | Imagen del agente para el despliegue con Ansible |
+
+## Pendiente con el grupo
+
+- **Juan:** ya confirmó el formato, el direccionamiento y el respondedor (ver
+  [CONTRATO.md](CONTRATO.md)). Falta que la ingesta cumpla los campos mínimos de
+  `datos`, use `INGESTA_TOKEN` y un timeout de 150 s, y que los contenedores se
+  llamen como los hosts protegidos.
+- **Tomás:** sumar el agente y Ollama al despliegue con Ansible, el job de
+  Prometheus para `:8088/metrics` y los paneles de Grafana.
+- **Grupo:** probar el modelo 8B en la notebook de la demo (pasos de arriba) y
+  confirmar que la placa es una GTX 1660 Ti de 6 GB.

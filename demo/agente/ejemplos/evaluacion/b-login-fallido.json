@@ -1,0 +1,16 @@
+{
+  "incidente_id": "EVAL-B04",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-B04-1", "regla_id": "R-T1110-fuerza-bruta-ssh", "tecnica": "T1110", "severidad": "media",
+     "descripcion": "Múltiples fallos de autenticación SSH seguidos de un acceso exitoso", "eventos": ["EVT-B04-1", "EVT-B04-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-B04-1", "ts": "2026-11-13T08:55:00Z", "host": "web-01", "tipo": "log",
+     "datos": {"fuente": "sshd", "linea": "Failed password for jmazza from 10.10.0.21 port 50210 ssh2", "repeticiones": 3, "ip_cliente": "10.10.0.21"}},
+    {"evento_id": "EVT-B04-2", "ts": "2026-11-13T08:55:40Z", "host": "web-01", "tipo": "log",
+     "datos": {"fuente": "sshd", "linea": "Accepted password for jmazza from 10.10.0.21 port 50214 ssh2", "ip_cliente": "10.10.0.21"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

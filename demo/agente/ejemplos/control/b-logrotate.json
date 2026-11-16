@@ -1,0 +1,16 @@
+{
+  "incidente_id": "CTRL-B02",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-CTRL-B02-1", "regla_id": "R-T1070-borrado-de-logs", "tecnica": "T1070.004", "severidad": "alta",
+     "descripcion": "Borrado de archivos de log", "eventos": ["EVT-CB02-1", "EVT-CB02-2"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-CB02-1", "ts": "2026-11-13T00:00:01Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "systemd", "proceso": "/usr/sbin/logrotate", "usuario": "root", "cmdline": "/usr/sbin/logrotate /etc/logrotate.conf"}},
+    {"evento_id": "EVT-CB02-2", "ts": "2026-11-13T00:00:02Z", "host": "web-01", "tipo": "archivo",
+     "datos": {"ruta": "/var/log/nginx/access.log.8.gz", "operacion": "borrar", "usuario": "root", "proceso": "/usr/sbin/logrotate"}}
+  ],
+  "etiqueta_esperada": "benigno"
+}

