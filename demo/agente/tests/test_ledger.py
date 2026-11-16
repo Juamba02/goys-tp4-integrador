@@ -65,3 +65,29 @@ def test_filtrar_por_incidente(tmp_path):
     led = Ledger(tmp_path / "l.jsonl")
     _llenar(led)
     assert [e["seq"] for e in led.entradas("INC-1")] == [2]
+
+
+def test_linea_cortada_no_impide_arrancar(tmp_path):
+    ruta = tmp_path / "l.jsonl"
+    _llenar(Ledger(ruta), 2)
+    # El proceso murió a mitad de escribir la tercera entrada.
+    with ruta.open("a", encoding="utf-8") as f:
+        f.write('{"seq": 3, "ts": "2026-11-16T10:00:00Z", "tipo": "pru')
+    led = Ledger(ruta)
+    assert led.cantidad == 2 and led.lineas_invalidas == [3]
+    res = led.verificar()
+    assert not res.integro and "línea 3" in res.detalle
+    # La próxima entrada empieza en una línea nueva y sigue la cadena de la última válida.
+    e = led.registrar("prueba", None, {})
+    assert e["seq"] == 3
+    assert [x["seq"] for x in Ledger(ruta).entradas()] == [1, 2, 3]
+
+
+def test_linea_que_no_es_objeto(tmp_path):
+    ruta = tmp_path / "l.jsonl"
+    _llenar(Ledger(ruta), 1)
+    with ruta.open("a", encoding="utf-8") as f:
+        f.write("42\n")
+    led = Ledger(ruta)
+    assert led.lineas_invalidas == [2]
+    assert not led.verificar().integro

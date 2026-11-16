@@ -160,3 +160,32 @@ def test_si_el_analisis_falla_se_libera_el_id(tmp_path, webshell):
     cambiado = copy.deepcopy(webshell)
     cambiado["host"] = "web-01"
     assert s.procesar_incidente(cambiado)[1] is True
+
+
+def test_editar_una_linea_baja_la_integridad_sin_eventos_nuevos(tmp_path, webshell):
+    import json as _json
+    import os
+
+    ruta = tmp_path / "l.jsonl"
+    s = Servicio(Ledger(ruta), Simulado())
+    s.procesar_incidente(webshell)
+    assert s.ledger_integro()
+    lineas = ruta.read_text(encoding="utf-8").splitlines()
+    entrada = _json.loads(lineas[0])
+    entrada["incidente_id"] = "INC-DEMO-9999"[: len(entrada["incidente_id"])]  # mismo largo
+    lineas[0] = _json.dumps(entrada, ensure_ascii=False)
+    ruta.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    st = ruta.stat()
+    os.utime(ruta, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000))  # por si el reloj del FS es grueso
+    assert not s.ledger_integro()
+    assert "minisoc_agente_ledger_integro 0" in s.metricas.exponer()
+
+
+def test_arranca_con_un_ledger_con_linea_cortada(tmp_path, webshell):
+    ruta = tmp_path / "l.jsonl"
+    Servicio(Ledger(ruta), Simulado()).procesar_incidente(webshell)
+    with ruta.open("a", encoding="utf-8") as f:
+        f.write('{"seq": 99, "tipo": "veredi')
+    s = Servicio(Ledger(ruta), Simulado())
+    assert s.veredicto("INC-DEMO-0001")["veredicto"] == "malicioso"
+    assert not s.ledger_integro()

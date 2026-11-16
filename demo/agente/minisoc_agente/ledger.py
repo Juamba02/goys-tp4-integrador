@@ -52,9 +52,20 @@ class Ledger:
         self._lock = threading.Lock()
         self._seq = 0
         self._ultimo_hash = HASH_INICIAL
+        # Líneas que no son una entrada válida (por ejemplo, una escritura cortada si el
+        # proceso murió a mitad). No impiden arrancar: se saltean al leer, la cadena queda
+        # sin verificar (integro=0) y se reportan acá para investigarlas.
+        self.lineas_invalidas: list[int] = []
         for entrada in self._leer_crudo():
             self._seq = entrada.get("seq", self._seq)
             self._ultimo_hash = entrada.get("hash", self._ultimo_hash)
+        # Si el archivo quedó sin salto de línea final (escritura cortada), la próxima
+        # entrada tiene que empezar en una línea nueva para no pegarse a la cortada.
+        self._falta_salto = False
+        if self.ruta.exists() and self.ruta.stat().st_size > 0:
+            with self.ruta.open("rb") as f:
+                f.seek(-1, 2)
+                self._falta_salto = f.read(1) != b"\n"
 
     def _hash(self, entrada_sin_hash: dict[str, Any]) -> str:
         datos = _canonico(entrada_sin_hash)
@@ -74,19 +85,40 @@ class Ledger:
             }
             entrada["hash"] = self._hash(entrada)
             with self.ruta.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(entrada, ensure_ascii=False) + "\n")
+                f.write(("\n" if self._falta_salto else "") + json.dumps(entrada, ensure_ascii=False) + "\n")
+            self._falta_salto = False
             self._seq = entrada["seq"]
             self._ultimo_hash = entrada["hash"]
             return entrada
 
-    def _leer_crudo(self) -> Iterator[dict[str, Any]]:
+    def _leer_lineas(self) -> Iterator[tuple[int, dict[str, Any] | None, str]]:
+        """(número de línea, entrada o None si no es válida, error)."""
         if not self.ruta.exists():
             return
-        with self.ruta.open(encoding="utf-8") as f:
-            for linea in f:
+        with self.ruta.open(encoding="utf-8", errors="replace") as f:
+            for nro, linea in enumerate(f, start=1):
                 linea = linea.strip()
-                if linea:
-                    yield json.loads(linea)
+                if not linea:
+                    continue
+                try:
+                    entrada = json.loads(linea)
+                except json.JSONDecodeError as e:
+                    yield nro, None, f"no es JSON válido: {e}"
+                    continue
+                if not isinstance(entrada, dict):
+                    yield nro, None, "no es un objeto JSON"
+                    continue
+                yield nro, entrada, ""
+
+    def _leer_crudo(self) -> Iterator[dict[str, Any]]:
+        """Entradas válidas, salteando (y anotando) las líneas que no lo son."""
+        invalidas = []
+        for nro, entrada, _ in self._leer_lineas():
+            if entrada is None:
+                invalidas.append(nro)
+            else:
+                yield entrada
+        self.lineas_invalidas = invalidas
 
     def entradas(self, incidente_id: str | None = None) -> list[dict[str, Any]]:
         return [e for e in self._leer_crudo() if incidente_id is None or e.get("incidente_id") == incidente_id]
@@ -103,22 +135,30 @@ class Ledger:
         anterior = HASH_INICIAL
         esperado_seq = 1
         n = 0
-        try:
-            for entrada in self._leer_crudo():
-                n += 1
-                seq = entrada.get("seq")
-                if seq != esperado_seq:
-                    return ResultadoVerificacion(False, n, seq, f"se esperaba seq {esperado_seq} y hay {seq}")
-                if entrada.get("hash_anterior") != anterior:
-                    return ResultadoVerificacion(False, n, seq, "hash_anterior no coincide: falta o cambió una entrada previa")
-                sin_hash = {k: v for k, v in entrada.items() if k != "hash"}
-                if self._hash(sin_hash) != entrada.get("hash"):
-                    return ResultadoVerificacion(False, n, seq, "el contenido de la entrada fue modificado")
-                anterior = entrada["hash"]
-                esperado_seq += 1
-        except json.JSONDecodeError as e:
-            return ResultadoVerificacion(False, n + 1, None, f"línea no es JSON válido: {e}")
+        for nro, entrada, error in self._leer_lineas():
+            n += 1
+            if entrada is None:
+                return ResultadoVerificacion(False, n, None, f"la línea {nro} {error}")
+            seq = entrada.get("seq")
+            if seq != esperado_seq:
+                return ResultadoVerificacion(False, n, seq, f"se esperaba seq {esperado_seq} y hay {seq}")
+            if entrada.get("hash_anterior") != anterior:
+                return ResultadoVerificacion(False, n, seq, "hash_anterior no coincide: falta o cambió una entrada previa")
+            sin_hash = {k: v for k, v in entrada.items() if k != "hash"}
+            if self._hash(sin_hash) != entrada.get("hash"):
+                return ResultadoVerificacion(False, n, seq, "el contenido de la entrada fue modificado")
+            anterior = entrada["hash"]
+            esperado_seq += 1
         return ResultadoVerificacion(True, n)
+
+    def huella_archivo(self) -> tuple[int, int, int]:
+        """(entradas escritas por este proceso, mtime en ns, tamaño) del archivo. Cambia
+        también si alguien edita una línea por fuera del agente."""
+        try:
+            st = self.ruta.stat()
+        except FileNotFoundError:
+            return (self._seq, 0, 0)
+        return (self._seq, st.st_mtime_ns, st.st_size)
 
 
 def _main() -> None:

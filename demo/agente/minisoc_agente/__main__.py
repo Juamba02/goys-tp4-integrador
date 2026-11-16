@@ -76,6 +76,8 @@ def main() -> None:
         threading.Thread(target=precalentar, daemon=True).start()
     if not servicio.ledger_integro():
         log.warning("¡El ledger en %s NO verifica! Revisar con: python -m minisoc_agente.ledger", ledger.ruta)
+    if ledger.lineas_invalidas:
+        log.warning("líneas del ledger que no son entradas válidas (se saltean): %s", ledger.lineas_invalidas)
 
     host = os.environ.get("AGENTE_HOST", "127.0.0.1")
     puerto = int(os.environ.get("AGENTE_PUERTO", "8088"))

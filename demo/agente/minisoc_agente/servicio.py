@@ -78,7 +78,7 @@ class Servicio:
         self._huellas: dict[str, str] = {}
         self._acciones: dict[str, dict[str, Any]] = {}
         self._contador_acciones = 0
-        self._integridad_cache: tuple[int, bool] | None = None
+        self._integridad_cache: tuple[tuple[int, int, int], bool] | None = None
         self.metricas = MetricasAgente(
             acciones_pendientes=lambda: sum(1 for a in self._acciones.values() if a["estado"] == "pendiente"),
             ledger_entradas=lambda: self.ledger.cantidad,
@@ -103,9 +103,12 @@ class Servicio:
                 acc["historial"].append({"estado": acc["estado"], "ts": e["ts"], **{k: v for k, v in datos.items() if k != "accion_id"}})
 
     def ledger_integro(self) -> bool:
-        n = self.ledger.cantidad
-        if self._integridad_cache is None or self._integridad_cache[0] != n:
-            self._integridad_cache = (n, self.ledger.verificar().integro)
+        # La clave incluye el mtime y el tamaño del archivo, no solo la cantidad de
+        # entradas: así una línea editada por fuera del agente se detecta en el próximo
+        # scrape, aunque no entren eventos nuevos.
+        clave = self.ledger.huella_archivo()
+        if self._integridad_cache is None or self._integridad_cache[0] != clave:
+            self._integridad_cache = (clave, self.ledger.verificar().integro)
         return self._integridad_cache[1]
 
     # --------------------------------------------------------------- incidentes
