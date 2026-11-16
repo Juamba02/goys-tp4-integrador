@@ -36,7 +36,7 @@
 
 # El modelo del agente se decide en un solo lugar, el .env, que leen igual Ansible,
 # demo.sh y un `docker compose up` a mano. Solo se escribe si se pasa con -e:
-#   ./ansible/ejecutar.sh -e minisoc_llm=ollama -e minisoc_ollama_url=http://...:11434
+#   ./ansible/ejecutar.sh -e minisoc_llm=ollama -e minisoc_ollama_modelo=llama3.2:3b
 - name: Modelo del agente válido
   ansible.builtin.assert:
     that:
@@ -59,8 +59,17 @@
     label: "{{ item.0 }}"
   when: lookup('ansible.builtin.vars', item.1, default='') | length > 0
 
+# Con ollama se levanta también el servicio ollama del compose (perfil "ollama").
+- name: Perfil de Ollama en .env
+  ansible.builtin.lineinfile:
+    path: "{{ minisoc_demo }}/.env"
+    regexp: "^COMPOSE_PROFILES="
+    line: COMPOSE_PROFILES=ollama
+    state: "{{ 'present' if minisoc_llm == 'ollama' else 'absent' }}"
+  when: minisoc_llm is defined
+
 - name: Modelo que va a usar el agente
-  ansible.builtin.shell: grep -E '^(LLM_BACKEND|OLLAMA_MODELO)=' .env || true
+  ansible.builtin.shell: grep -E '^(LLM_BACKEND|OLLAMA_MODELO|COMPOSE_PROFILES)=' .env || true
   args:
     chdir: "{{ minisoc_demo }}"
   register: modelo
