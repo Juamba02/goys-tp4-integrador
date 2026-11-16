@@ -33,3 +33,40 @@
   changed_when: false
   check_mode: false  # solo lee: corre también con --check
   failed_when: vacios.stdout | int > 0
+
+# El modelo del agente se decide en un solo lugar, el .env, que leen igual Ansible,
+# demo.sh y un `docker compose up` a mano. Solo se escribe si se pasa con -e:
+#   ./ansible/ejecutar.sh -e minisoc_llm=ollama -e minisoc_ollama_url=http://...:11434
+- name: Modelo del agente válido
+  ansible.builtin.assert:
+    that:
+      - minisoc_llm is not defined or minisoc_llm in ['simulado', 'ollama']
+      - minisoc_ollama_url is not defined or minisoc_ollama_url is match('^https?://[^ ]+$')
+      - minisoc_ollama_modelo is not defined or minisoc_ollama_modelo is match('^[A-Za-z0-9._:/-]+$')
+    fail_msg: "minisoc_llm es simulado u ollama; la URL y el modelo, sin espacios"
+    quiet: true
+
+- name: Modelo del agente en .env
+  ansible.builtin.lineinfile:
+    path: "{{ minisoc_demo }}/.env"
+    regexp: "^{{ item.0 }}="
+    line: "{{ item.0 }}={{ lookup('ansible.builtin.vars', item.1) }}"
+  loop:
+    - [LLM_BACKEND, minisoc_llm]
+    - [OLLAMA_URL, minisoc_ollama_url]
+    - [OLLAMA_MODELO, minisoc_ollama_modelo]
+  loop_control:
+    label: "{{ item.0 }}"
+  when: lookup('ansible.builtin.vars', item.1, default='') | length > 0
+
+- name: Modelo que va a usar el agente
+  ansible.builtin.shell: grep -E '^(LLM_BACKEND|OLLAMA_MODELO)=' .env || true
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: modelo
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Agente
+  ansible.builtin.debug:
+    msg: "{{ modelo.stdout_lines | join(' · ') if modelo.stdout else 'LLM_BACKEND=simulado (default del compose)' }}"

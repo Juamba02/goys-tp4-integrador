@@ -1,8 +1,3 @@
-# Modelo del agente: "simulado" (sin GPU ni descargas) u "ollama" (Llama local).
-minisoc_llm: simulado
-minisoc_ollama_url: http://127.0.0.1:11434
-minisoc_ollama_modelo: llama3.1:8b
-
 # false: no construye (sin Internet; las imágenes ya tienen que estar cargadas).
 minisoc_construir: true
 

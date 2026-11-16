@@ -60,6 +60,7 @@
   changed_when: imagenes_antes.stdout != imagenes_despues.stdout
 
 # Recrea solo lo que cambió (imagen o configuración) y espera a los healthchecks.
+# El modelo del agente sale del .env (rol preparacion), igual que con demo.sh.
 # Prometheus y Grafana se bajan solo si faltan: con las imágenes ya cargadas
 # (paso offline) no necesita Internet.
 - name: Servicios arriba y sanos
@@ -71,10 +72,6 @@
     remove_orphans: true
     wait: true
     wait_timeout: "{{ minisoc_espera }}"
-  environment:
-    LLM_BACKEND: "{{ minisoc_llm }}"
-    OLLAMA_URL: "{{ minisoc_ollama_url }}"
-    OLLAMA_MODELO: "{{ minisoc_ollama_modelo }}"
   register: compose
 
 - name: Servicios

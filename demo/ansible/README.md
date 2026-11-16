@@ -9,6 +9,7 @@ imagen vieja, un token faltante) lo corrige y lo informa como cambio.
 ./ansible/ejecutar.sh --check                 # qué cambiaría, sin cambiar nada
 ./ansible/ejecutar.sh --tags verificacion     # solo las pruebas
 ./ansible/ejecutar.sh -e minisoc_construir=false   # sin Internet: no construye imágenes
+./ansible/ejecutar.sh -e minisoc_llm=ollama -e minisoc_ollama_url=http://...:11434   # Llama
 ```
 
 ## Cómo corre
@@ -40,7 +41,7 @@ Tabla 1: roles de `site.yml`.
 
 | Rol | Tareas | Cuándo cambia algo |
 |---|---|---|
-| `preparacion` | Docker y Compose v2 disponibles · `preparar.sh` · ningún token vacío | si faltaban variables en `.env` |
+| `preparacion` | Docker y Compose v2 disponibles · `preparar.sh` · ningún token vacío · modelo del agente en `.env` | si faltaban variables en `.env` o se cambió el modelo |
 | `laboratorio` | construye las imágenes · levanta los servicios · espera los healthchecks | si una imagen cambió o un servicio no estaba como debe |
 | `verificacion` | `red/verificar.sh` (41 pruebas) · ledger íntegro · Grafana con el dashboard | nunca: solo comprueba |
 
@@ -48,11 +49,17 @@ Tabla 2: variables.
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `minisoc_llm` | `simulado` | `ollama` para usar Llama |
-| `minisoc_ollama_url` | `http://127.0.0.1:11434` | dónde está Ollama |
-| `minisoc_ollama_modelo` | `llama3.1:8b` | modelo del agente |
+| `minisoc_llm` | lo que diga `.env` | `simulado` u `ollama`; se escribe en `.env` como `LLM_BACKEND` |
+| `minisoc_ollama_url` | lo que diga `.env` | dónde está Ollama (`OLLAMA_URL`) |
+| `minisoc_ollama_modelo` | lo que diga `.env` | modelo del agente (`OLLAMA_MODELO`) |
 | `minisoc_construir` | `true` | `false` sin Internet: usa las imágenes ya cargadas |
 | `minisoc_espera` | `240` | segundos para que todo esté sano |
+
+**El modelo del agente se decide solo en `.env`.** Ansible no se lo pasa a Compose por el
+entorno, porque el entorno le gana al `.env`: si lo hiciera, una corrida sin `-e` volvería
+al modelo simulado y el próximo `demo.sh` recrearía el agente con el otro. Las tres
+variables se escriben en `.env` solo cuando se pasan con `-e`, y quedan para Ansible,
+`demo.sh` y `docker compose up`. Sin ninguna, el compose usa `simulado`.
 
 ## Idempotencia: dos detalles
 
@@ -74,3 +81,5 @@ Tabla 3: corridas sobre el laboratorio levantado.
 | Segunda | `changed=0` · 41 OK |
 | `--check` | `changed=0`, no toca nada · 41 OK |
 | Con Grafana parado a mano | `changed=1`: lo levanta y queda sano |
+| `-e minisoc_llm=simulado`, dos veces | `changed=1` (escribe `.env`) y después `changed=0` |
+| `-e minisoc_llm=gpt` | falla antes de tocar nada |
