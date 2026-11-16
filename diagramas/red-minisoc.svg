@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600" font-family="Arial, Helvetica, sans-serif" role="img" aria-labelledby="titulo desc">
+  <title id="titulo">Topología del laboratorio MiniSOC-IA</title>
+  <desc id="desc">Cuatro segmentos (externo, servicios, gestión y SOC) conectados a un único router con firewall. Se muestran el tráfico permitido hacia el servicio publicado, la telemetría de los servicios hacia la ingesta y el canal de contención del respondedor hacia el router.</desc>
+  <defs>
+    <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+    </marker>
+    <style>
+      .seg { fill: #f6f7f9; stroke: #4a5560; stroke-width: 1.5; rx: 10; }
+      .seg-titulo { font-size: 17px; font-weight: bold; fill: #1f2933; }
+      .seg-red { font-size: 13px; fill: #52606d; }
+      .host { fill: #ffffff; stroke: #7b8794; stroke-width: 1; rx: 5; }
+      .host-nombre { font-size: 13px; font-weight: bold; fill: #1f2933; }
+      .host-ip { font-size: 12px; fill: #52606d; }
+      .enlace { stroke: #4a5560; stroke-width: 2.5; }
+      .ip-router { font-size: 12px; fill: #1f2933; font-weight: bold; }
+      .flujo-permitido { stroke: #2b7a3d; stroke-width: 2.5; fill: none; }
+      .flujo-telemetria { stroke: #1d5fa8; stroke-width: 2.5; fill: none; stroke-dasharray: 8 5; }
+      .flujo-contencion { stroke: #b3261e; stroke-width: 2.5; fill: none; stroke-dasharray: 3 4; }
+      .etiqueta { font-size: 12px; fill: #1f2933; }
+      .nota { font-size: 11px; fill: #52606d; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="600" fill="#ffffff"/>
+
+  <!-- Router -->
+  <rect x="420" y="235" width="160" height="130" rx="12" fill="#1f2933"/>
+  <text x="500" y="275" text-anchor="middle" font-size="18" font-weight="bold" fill="#ffffff">router</text>
+  <text x="500" y="297" text-anchor="middle" font-size="12" fill="#cbd2d9">iptables: descarta</text>
+  <text x="500" y="313" text-anchor="middle" font-size="12" fill="#cbd2d9">todo por defecto</text>
+  <text x="500" y="337" text-anchor="middle" font-size="12" fill="#f8b4b4">contención :9000</text>
+  <text x="500" y="353" text-anchor="middle" font-size="11" fill="#cbd2d9">(MINISOC-CONTENCION)</text>
+
+  <!-- Externo -->
+  <rect class="seg" x="30" y="30" width="300" height="170"/>
+  <text class="seg-titulo" x="50" y="60">externo</text>
+  <text class="seg-red" x="50" y="80">10.99.0.0/24 · "Internet", no confiable</text>
+  <rect class="host" x="50" y="100" width="140" height="48"/>
+  <text class="host-nombre" x="62" y="120">atacante</text>
+  <text class="host-ip" x="62" y="138">10.99.0.66</text>
+
+  <!-- Servicios -->
+  <rect class="seg" x="30" y="380" width="300" height="190"/>
+  <text class="seg-titulo" x="50" y="410">servicios</text>
+  <text class="seg-red" x="50" y="430">10.20.0.0/24 · con sensor</text>
+  <rect class="host" x="185" y="450" width="125" height="48"/>
+  <text class="host-nombre" x="197" y="470">web-01</text>
+  <text class="host-ip" x="197" y="488">.11 · php-fpm :80</text>
+  <rect class="host" x="50" y="450" width="120" height="48"/>
+  <text class="host-nombre" x="62" y="470">api-01</text>
+  <text class="host-ip" x="62" y="488">.12 · node :3000</text>
+  <rect class="host" x="50" y="508" width="120" height="48"/>
+  <text class="host-nombre" x="62" y="528">db-01</text>
+  <text class="host-ip" x="62" y="546">.13 · postgres</text>
+
+  <!-- Gestión -->
+  <rect class="seg" x="670" y="30" width="300" height="170"/>
+  <text class="seg-titulo" x="690" y="60">gestión</text>
+  <text class="seg-red" x="690" y="80">10.10.0.0/24 · administración</text>
+  <rect class="host" x="690" y="100" width="125" height="48"/>
+  <text class="host-nombre" x="702" y="120">ansible</text>
+  <text class="host-ip" x="702" y="138">.10 · SSH a todo</text>
+  <rect class="host" x="830" y="100" width="125" height="48"/>
+  <text class="host-nombre" x="842" y="120">espejo</text>
+  <text class="host-ip" x="842" y="138">.5 · paquetes :80</text>
+
+  <!-- SOC -->
+  <rect class="seg" x="670" y="330" width="300" height="240"/>
+  <text class="seg-titulo" x="690" y="360">SOC</text>
+  <text class="seg-red" x="690" y="380">10.30.0.0/24 · no inicia conexiones</text>
+  <rect class="host" x="690" y="395" width="125" height="48"/>
+  <text class="host-nombre" x="702" y="415">respondedor</text>
+  <text class="host-ip" x="702" y="433">.30</text>
+  <rect class="host" x="830" y="395" width="125" height="48"/>
+  <text class="host-nombre" x="842" y="415">analista</text>
+  <text class="host-ip" x="842" y="433">.50 · aprueba</text>
+  <rect class="host" x="690" y="453" width="125" height="48"/>
+  <text class="host-nombre" x="702" y="473">agente IA</text>
+  <text class="host-ip" x="702" y="491">.20 · :8088</text>
+  <rect class="host" x="830" y="453" width="125" height="48"/>
+  <text class="host-nombre" x="842" y="473">detección</text>
+  <text class="host-ip" x="842" y="491">.40 · :8082</text>
+  <rect class="host" x="690" y="511" width="125" height="48"/>
+  <text class="host-nombre" x="702" y="531">ingesta</text>
+  <text class="host-ip" x="702" y="549">.10 · :8081</text>
+
+  <!-- Enlaces al router (.254 en cada segmento) -->
+  <line class="enlace" x1="330" y1="150" x2="420" y2="250"/>
+  <text class="ip-router" x="352" y="215">.254</text>
+  <line class="enlace" x1="330" y1="450" x2="420" y2="350"/>
+  <text class="ip-router" x="352" y="392">.254</text>
+  <line class="enlace" x1="670" y1="150" x2="580" y2="250"/>
+  <text class="ip-router" x="616" y="215">.254</text>
+  <line class="enlace" x1="670" y1="420" x2="580" y2="350"/>
+  <text class="ip-router" x="616" y="400">.254</text>
+
+  <!-- Flujos -->
+  <!-- Todo el tráfico entre segmentos atraviesa el router. -->
+  <path class="flujo-permitido" d="M190,124 L432,242 M432,362 L262,448" marker-end="url(#flecha)"/>
+  <text class="etiqueta" x="180" y="250">TCP 80 a web-01</text>
+  <text class="etiqueta" x="180" y="265">(lo único que entra)</text>
+
+  <path class="flujo-telemetria" d="M330,520 L462,366 M540,366 L686,532" marker-end="url(#flecha)"/>
+  <text class="etiqueta" x="501" y="392" text-anchor="middle">telemetría → ingesta :8081</text>
+
+  <path class="flujo-contencion" d="M690,412 C640,412 620,330 584,322" marker-end="url(#flecha)"/>
+  <text class="etiqueta" x="588" y="292">acción</text>
+  <text class="etiqueta" x="588" y="306">aprobada</text>
+
+  <!-- Leyenda -->
+  <g transform="translate(360,30)">
+    <rect x="0" y="0" width="280" height="96" rx="8" fill="#ffffff" stroke="#cbd2d9"/>
+    <line class="flujo-permitido" x1="14" y1="22" x2="54" y2="22"/>
+    <text class="etiqueta" x="64" y="26">tráfico permitido por el firewall</text>
+    <line class="flujo-telemetria" x1="14" y1="46" x2="54" y2="46"/>
+    <text class="etiqueta" x="64" y="50">telemetría de los sensores</text>
+    <line class="flujo-contencion" x1="14" y1="70" x2="54" y2="70"/>
+    <text class="etiqueta" x="64" y="74">contención (solo el respondedor)</text>
+  </g>
+  <text class="nota" x="500" y="590" text-anchor="middle">Sin NAT ni ruta por defecto hacia afuera: ningún segmento sale a Internet. Todo corre en Docker, en una notebook.</text>
+</svg>
