@@ -1,0 +1,7 @@
+# El laboratorio es un proyecto de Docker Compose en la misma notebook: Ansible lo
+# maneja localmente por el socket de Docker, no por SSH. Los nodos del laboratorio
+# no corren sshd (el 22 lo atiende escuchar.py para las pruebas de segmentación).
+all:
+  hosts:
+    notebook:
+      ansible_connection: local

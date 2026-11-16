@@ -1,0 +1,5 @@
+# false: no construye (sin Internet; las imágenes ya tienen que estar cargadas).
+minisoc_construir: true
+
+# Segundos que se espera a que todos los servicios estén sanos.
+minisoc_espera: 240
