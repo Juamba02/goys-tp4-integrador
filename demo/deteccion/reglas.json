@@ -1,0 +1,115 @@
+{
+  "_formato": "Cada regla mira un tipo de evento y dispara si se cumplen TODAS las condiciones de 'cuando' y NINGUNA de 'excepto'. Los campos se buscan primero en el evento (host, segmento) y después en 'datos'. Operadores: igual, en, contiene, contiene_alguno, regex, no_en, existe.",
+  "reglas": [
+    {
+      "id": "R-T1059-shell-desde-web",
+      "tecnica": "T1059",
+      "tactica": "execution",
+      "severidad": "alta",
+      "descripcion": "Un proceso de servicio (web, API o base) lanzó un intérprete de comandos",
+      "tipo": "proceso",
+      "cuando": {
+        "padre": {"en": ["php-fpm", "node", "nginx", "apache2", "httpd", "postgres", "java", "gunicorn"]},
+        "proceso": {"en": ["sh", "bash", "dash", "ash", "zsh"]}
+      }
+    },
+    {
+      "id": "R-T1082-reconocimiento",
+      "tecnica": "T1082",
+      "tactica": "discovery",
+      "severidad": "media",
+      "descripcion": "Comandos de reconocimiento del sistema (id, whoami, uname, hostname)",
+      "tipo": "proceso",
+      "cuando": {
+        "cmdline": {"regex": "(^|[;&|\\s])(id|whoami|uname|hostname)(\\s|;|$)"}
+      }
+    },
+    {
+      "id": "R-T1003-lectura-cuentas",
+      "tecnica": "T1003",
+      "tactica": "credential-access",
+      "severidad": "media",
+      "descripcion": "Lectura de los archivos de cuentas del sistema",
+      "tipo": "proceso",
+      "cuando": {
+        "cmdline": {"contiene_alguno": ["/etc/passwd", "/etc/shadow", "/etc/sudoers"]}
+      }
+    },
+    {
+      "id": "R-T1105-descarga-desde-externo",
+      "tecnica": "T1105",
+      "tactica": "command-and-control",
+      "severidad": "alta",
+      "descripcion": "Descarga de un archivo desde una red no confiable",
+      "tipo": "proceso",
+      "cuando": {
+        "proceso": {"en": ["wget", "curl", "ftp", "tftp", "scp"]},
+        "segmentos_mencionados": {"contiene_alguno": ["externo", "fuera_del_laboratorio"]}
+      }
+    },
+    {
+      "id": "R-T1105-descarga-interna",
+      "tecnica": "T1105",
+      "tactica": "command-and-control",
+      "severidad": "baja",
+      "descripcion": "Descarga de un archivo desde un servidor interno",
+      "tipo": "proceso",
+      "cuando": {
+        "proceso": {"en": ["wget", "curl", "ftp", "tftp", "scp"]},
+        "segmentos_mencionados": {"contiene_alguno": ["gestion", "servicios", "soc"]}
+      },
+      "excepto": {
+        "segmentos_mencionados": {"contiene_alguno": ["externo", "fuera_del_laboratorio"]}
+      }
+    },
+    {
+      "id": "R-T1059-herramienta-de-red",
+      "tecnica": "T1059",
+      "tactica": "execution",
+      "severidad": "alta",
+      "descripcion": "Uso de netcat o similares, típico de shells reversos y túneles",
+      "tipo": "proceso",
+      "cuando": {
+        "proceso": {"en": ["nc", "ncat", "netcat", "socat"]}
+      }
+    },
+    {
+      "id": "R-T1071-salida-a-red-no-confiable",
+      "tecnica": "T1071",
+      "tactica": "command-and-control",
+      "severidad": "media",
+      "descripcion": "Un servicio intentó conectarse a una red no confiable (aunque el firewall lo haya bloqueado)",
+      "tipo": "conexion",
+      "cuando": {
+        "direccion": {"igual": "saliente"},
+        "segmento_remoto": {"en": ["externo", "fuera_del_laboratorio"]}
+      }
+    },
+    {
+      "id": "R-T1021-ssh-desde-servicios",
+      "tecnica": "T1021",
+      "tactica": "lateral-movement",
+      "severidad": "alta",
+      "descripcion": "Un servicio intentó abrir una sesión SSH: los servicios no administran otros hosts",
+      "tipo": "conexion",
+      "cuando": {
+        "segmento": {"igual": "servicios"},
+        "direccion": {"igual": "saliente"},
+        "puerto_destino": {"igual": 22}
+      }
+    },
+    {
+      "id": "R-T1021-ssh-entrante-desde-servicios",
+      "tecnica": "T1021",
+      "tactica": "lateral-movement",
+      "severidad": "alta",
+      "descripcion": "Un servicio recibió una conexión SSH desde otro servicio (solo gestión administra por SSH)",
+      "tipo": "conexion",
+      "cuando": {
+        "direccion": {"igual": "entrante"},
+        "puerto_destino": {"igual": 22},
+        "segmento_remoto": {"igual": "servicios"}
+      }
+    }
+  ]
+}

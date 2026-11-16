@@ -1,0 +1,5 @@
+# Los scripts corren dentro de contenedores Linux: con CRLF fallan al arrancar.
+*.sh      text eol=lf
+*.py      text eol=lf
+*.v4      text eol=lf
+Dockerfile text eol=lf

@@ -1,0 +1,60 @@
+# Política de firewall del router del MiniSOC-IA (formato iptables-restore).
+#
+# Principio: todo lo que no está permitido explícitamente se descarta.
+# Las reglas usan subredes y no nombres de interfaz, porque Docker no garantiza
+# el orden en que conecta las redes al contenedor.
+#
+#   gestion   10.10.0.0/24    servicios 10.20.0.0/24
+#   soc       10.30.0.0/24    externo   10.99.0.0/24
+#
+# Hosts con nombre propio:
+#   espejo  10.10.0.5   web-01 10.20.0.11   ingesta 10.30.0.10
+#   ansible 10.10.0.10  api-01 10.20.0.12   agente  10.30.0.20
+#                       db-01  10.20.0.13   respondedor 10.30.0.30
+
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+# Bloqueos dinámicos que agrega el respondedor (bloquear_ip, aislar_host).
+# Va primero para que corte también las conexiones ya establecidas.
+:MINISOC-CONTENCION - [0:0]
+# Tráfico permitido entre segmentos.
+:MINISOC-PERMITIDO - [0:0]
+# Último paso: lo que llega acá se descarta. Sus contadores muestran cuánto
+# tráfico frenó la segmentación (iptables -L MINISOC-DENEGADO -v).
+:MINISOC-DENEGADO - [0:0]
+
+# ------------------------------------------------------------- al router mismo
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -s 10.10.0.0/24 -j ACCEPT
+-A INPUT -p icmp --icmp-type echo-request -s 10.30.0.0/24 -j ACCEPT
+# Servicio de contención: solo el respondedor, solo por la IP del router en el SOC.
+-A INPUT -s 10.30.0.30/32 -d 10.30.0.254/32 -p tcp --dport 9000 -j ACCEPT
+
+# --------------------------------------------------------- entre segmentos
+-A FORWARD -j MINISOC-CONTENCION
+-A FORWARD -m conntrack --ctstate INVALID -j DROP
+-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A FORWARD -m conntrack --ctstate NEW -j MINISOC-PERMITIDO
+-A FORWARD -j MINISOC-DENEGADO
+
+# gestion: administra servicios y SOC por SSH, y puede hacer ping.
+-A MINISOC-PERMITIDO -s 10.10.0.0/24 -d 10.20.0.0/24 -p tcp --dport 22 -j ACCEPT
+-A MINISOC-PERMITIDO -s 10.10.0.0/24 -d 10.30.0.0/24 -p tcp --dport 22 -j ACCEPT
+-A MINISOC-PERMITIDO -s 10.10.0.0/24 -d 10.20.0.0/24 -p icmp --icmp-type echo-request -j ACCEPT
+-A MINISOC-PERMITIDO -s 10.10.0.0/24 -d 10.30.0.0/24 -p icmp --icmp-type echo-request -j ACCEPT
+
+# servicios: solo bajan paquetes del espejo y mandan telemetría a la ingesta.
+-A MINISOC-PERMITIDO -s 10.20.0.0/24 -d 10.10.0.5/32 -p tcp --dport 80 -j ACCEPT
+-A MINISOC-PERMITIDO -s 10.20.0.0/24 -d 10.30.0.10/32 -p tcp --dport 8081 -j ACCEPT
+
+# externo: solo llega al servicio publicado (web-01:80).
+-A MINISOC-PERMITIDO -s 10.99.0.0/24 -d 10.20.0.11/32 -p tcp --dport 80 -j ACCEPT
+
+# soc: no inicia conexiones hacia otros segmentos. Actúa sobre la red
+# a través del propio router (ver respondedor).
+
+-A MINISOC-DENEGADO -j DROP
+COMMIT
