@@ -57,6 +57,7 @@ Tabla 1: los 11 pasos de la demo.
 | [`deteccion/`](deteccion/README.md) | 9 reglas MITRE y correlación en incidentes (`10.30.0.40:8082`) | 34 tests |
 | [`agente/`](agente/README.md) | Triage con LLM local, aprobación humana y ledger (`10.30.0.20:8088`) | de Joaquín |
 | [`respondedor/`](respondedor/README.md) | Aplica en el router lo que aprobó el analista (`10.30.0.30`) | 9 + 21 tests |
+| [`ansible/`](ansible/README.md) | Despliegue idempotente y verificación con un comando (`./ansible/ejecutar.sh`) | 2.ª corrida `changed=0` |
 | [`monitoreo/`](monitoreo/README.md) | Prometheus (`10.30.0.60`) y Grafana en <http://127.0.0.1:3000>, 11 alertas | 8 tests del router |
 
 Scripts: `preparar.sh` genera los tokens en `.env`; `simular.sh` corre un escenario;
