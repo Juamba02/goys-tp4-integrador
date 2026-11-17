@@ -180,8 +180,8 @@ ataque, actúa sobre el router.
 3. La **detección** lo compara con las reglas: dispara `T1059` (un servicio lanzó un
    shell) y `T1082` (reconocimiento).
 4. La **correlación** suma las alertas al incidente de `web-01`. Cuando el host pasa
-   20 s sin alertas nuevas, lo cierra y lo manda al agente, con eventos de contexto
-   hasta un tamaño que entre en la ventana del modelo.
+   20 s sin alertas nuevas, lo cierra y lo manda al agente, con los eventos de los
+   10 s alrededor como contexto, hasta un tamaño que entre en la ventana del modelo.
 
 El incidente correlacionado llega al agente por HTTP (`POST /incidentes`). El
 agente le pide un veredicto al modelo local, valida la respuesta contra el

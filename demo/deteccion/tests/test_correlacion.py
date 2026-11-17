@@ -236,6 +236,68 @@ def test_analizando_no_se_toma_como_veredicto(armado):
     assert "minisoc_correlacion_veredictos_total{veredicto=\"malicioso\"} 1" in corr.metricas()
 
 
+def test_contexto_solo_cercano_en_el_tiempo(armado):
+    # Con Llama en la demo: las pruebas de verificar.sh desde web-01 (EVT-000001..3, ~57 s
+    # antes de la webshell) entraban como contexto por cercanía de id, y el modelo las
+    # tomaba como parte del ataque y proponía aislar el host en vez de bloquear la IP.
+    detector, corr, reloj, agente = armado
+    detectar(detector, "webshell")
+    corr.ciclo()
+    reloj.t += 30
+    corr.ciclo()
+    ids = {e["evento_id"] for e in agente.recibidos[0]["eventos"]}
+    assert ids.isdisjoint({"EVT-000001", "EVT-000002", "EVT-000003"})
+    assert {"EVT-000005", "EVT-000007", "EVT-000009"} <= ids  # los sleep del ataque, sí
+
+
+def test_agente_lento_no_frena_el_agrupamiento(armado):
+    # Con Llama en la demo: mientras el agente analizaba un incidente (~90 s), la última
+    # prueba de verificar.sh quedaba sin agrupar y después se sumaba al de la webshell.
+    import threading
+    detector, corr, reloj, agente = armado
+    entro, liberar = threading.Event(), threading.Event()
+
+    def lento(incidente):
+        agente.recibidos.append(incidente)
+        entro.set()
+        liberar.wait(5)
+        return 201, {"veredicto": "malicioso"}
+    corr.enviar = lento
+    detectar(detector, "reverse-shell")
+    corr.agrupar()
+    reloj.t += 30
+    corr.agrupar()
+    envio = threading.Thread(target=corr.despachar)
+    envio.start()
+    assert entro.wait(5)               # el agente está analizando el de api-01
+    detectar(detector, "pruebas_de_red")
+    corr.agrupar()
+    reloj.t += 90                      # pasa el tiempo; el agente sigue ocupado
+    corr.agrupar()
+    detectar(detector, "webshell")
+    corr.agrupar()
+    liberar.set()
+    envio.join(5)
+    reloj.t += 30
+    corr.ciclo()
+    web = [i for i in agente.recibidos if i["host"] == "web-01"]
+    assert len(web) == 2               # las pruebas por un lado, el ataque por el otro
+    citados = [{e for a in i["alertas"] for e in a["eventos"]} for i in web]
+    assert citados[0] <= {"EVT-000001", "EVT-000002", "EVT-000003"}
+    assert citados[1].isdisjoint({"EVT-000001", "EVT-000002", "EVT-000003"})
+
+
+def test_contexto_con_ts_ilegible_no_entra(armado):
+    detector, corr, reloj, agente = armado
+    vecino = {**ESCENARIOS["webshell"][1], "evento_id": "EVT-000003", "ts": "ayer"}
+    corr.contexto = lambda host, desde, hasta: [vecino]
+    detectar(detector, "webshell")
+    corr.ciclo()
+    reloj.t += 30
+    corr.ciclo()
+    assert "EVT-000003" not in {e["evento_id"] for e in agente.recibidos[0]["eventos"]}
+
+
 def test_sin_contexto_van_los_eventos_citados(armado):
     detector, corr, reloj, agente = armado
 
