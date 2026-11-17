@@ -88,10 +88,14 @@ Tabla 1: lo medido en esta carpeta.
 | Máquina | Modelo | Ocupa (`ollama ps`) | Procesador | Veredicto en `demo.sh` |
 |---|---|---|---|---|
 | RTX 3080 10 GB (desarrollo) | llama3.1:8b | 5,3 GB | 100% GPU | webshell **malicioso** en 3,4 s · firmas **benigno** en 1,9 s |
-| GTX 1660 Ti 6 GB (Feria) | llama3.1:8b | a medir | a medir | a medir |
+| GTX 1660 Ti 6 GB (Feria) | llama3.1:8b | 5,6 GB | 25%/75% CPU/GPU | webshell **malicioso** en ~45 s (30 a 85 s) · firmas **benigno** en ~18 s (15 a 21 s) |
 
-Con 5,3 GB, el 8B entra justo en los 6 GB de la 1660 Ti, si no hay otro programa usando
-la placa.
+En la 1660 Ti, el 8B no entra entero: con contexto de 4096 ocupa 5,6 GB y un cuarto
+corre en la CPU. Por eso cada veredicto tarda unas 10 veces más que en la RTX 3080.
+Del ataque al veredicto pasan unos 70 s (55 a 110 s): unos 25 s del ataque y la espera
+de la correlación, más el modelo. La primera consulta después de arrancar el agente
+tarda unos 90 s, porque carga el modelo; en la demo le toca al incidente de
+`verificar.sh`. Mediciones de 7 corridas de `demo.sh` en la notebook de la Feria.
 
 Tabla 2: pruebas de los scripts.
 
@@ -114,3 +118,5 @@ Tabla 2: pruebas de los scripts.
   pero no que bajaría o levantaría Ollama: eso depende del `.env` nuevo, que con
   `--check` no se escribe.
 - **La imagen de Ollama ocupa 8,5 GB** en disco (trae CUDA).
+- **Los incidentes se analizan de a uno** (`OLLAMA_NUM_PARALLEL=1`): si llega uno
+  mientras el modelo analiza otro, espera su turno.

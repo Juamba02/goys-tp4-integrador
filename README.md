@@ -1,165 +1,63 @@
-# TP4 — Proyecto Integrador + Feria de Redes
+# MiniSOC-IA
 
-> **GOYS** — Gestión Operativa y Seguridad en Redes · UTN FR La Plata
-> **Peso:** 60% de la nota del bloque Redes/Operación
-> **Muestra:** Feria de Redes (última clase del bloque)
+**TP4 — Proyecto Integrador · Gestión Operativa y Seguridad en Redes · UTN FR La Plata**
+Grupo 13: Juan Bautista Aramberri · Tomás Costa · Joaquín Mazza · Modalidad A (Proyecto de Desarrollo)
 
-Este es el **repositorio base del Trabajo Práctico Integrador (TP4)**. Un integrante del grupo lo **forkea**, agrega al resto como **colaboradores**, y todo el trabajo colaborativo del TP4 se hace acá.
+Un centro de operaciones de seguridad (SOC) a escala de laboratorio. Detecta un ataque,
+lo investiga con un modelo de lenguaje local y lo contiene en la red **solo después de que
+lo aprueba una persona**. Corre entero en una notebook, sin Internet.
 
----
+![Topología del laboratorio: cuatro segmentos unidos por un router con firewall](diagramas/red-minisoc.svg)
 
-## 1. ¿Qué es el TP4?
+## Entregables
 
-El TP4 integra **las 3 áreas de la materia** —**Redes**, **Operación (Gestión)** y **Seguridad**— en un proyecto con mayor autonomía:
+| Qué | Dónde |
+|---|---|
+| Documento (7 páginas) | [`documento/documento.pdf`](documento/documento.pdf) · fuente en [`documento.md`](documento/documento.md) |
+| Póster A1 | [`poster/poster.pdf`](poster/poster.pdf) · editable en [`poster.html`](poster/poster.html) |
+| Demo | [`demo/`](demo/README.md) |
+| Capturas y evidencias | [`capturas/`](capturas/README.md) |
+| Bitácora del grupo | [`progreso.md`](progreso.md) |
+| Consigna de la cátedra | [`CONSIGNA.md`](CONSIGNA.md) |
 
-| Área | Qué cubre |
-|------|-----------|
-| 🔌 **Redes** | Topología, routing (BGP/OSPF), switching, VXLAN, containers, L2/L3 |
-| ⚙️ **Operación (Gestión)** | Automatización (Ansible), monitoreo (Prometheus/Grafana), orquestación (K3s), GitOps |
-| 🛡️ **Seguridad** | Segmentación, network policies, mTLS, Zero Trust, Cilium/Hubble |
+## Reproducirlo
 
-Se muestra al final en una **Feria de Redes** (formato congreso): cada grupo monta una **estación** con póster, documento y demo funcionando, y la defiende frente a docentes, compañeros e invitados.
-
-Cada grupo elige **UNA** de las 3 modalidades (sección 2).
-
----
-
-## 2. Modalidades (elegir UNA)
-
-| Modalidad | Qué es | Template |
-|-----------|--------|----------|
-| **A — Proyecto de Desarrollo** | Diseñar e implementar una solución que integre redes, containers, automatización y monitoreo | `templates/template-modalidad-a.md` |
-| **B — Artículo de Revisión del Estado del Arte** | Investigar el estado del arte de una tecnología, sus innovaciones emergentes y oportunidades | `templates/template-modalidad-b.md` |
-| **C — Trabajo de Campo** | Analizar una red real (o caso de estudio) y proponer mejoras | `templates/template-modalidad-c.md` |
-
-### ¿Cómo integra cada modalidad las 3 áreas?
-
-| Área | A — Desarrollo | B — Estado del Arte | C — Trabajo de Campo |
-|------|----------------|---------------------|----------------------|
-| 🔌 **Redes** | Topología + routing + containers **implementados** | Estado del arte de una tecnología de red | Relevamiento de la red real |
-| ⚙️ **Operación** | Ansible + monitoreo **automatizados** | Network automation, observabilidad | Propuesta de automatización/monitoreo |
-| 🛡️ **Seguridad** | Network policies, segmentación, mTLS | Zero Trust, eBPF security, mTLS | Segmentación + mejoras de seguridad |
-
-> ⚠️ **La seguridad NO es opcional en ninguna modalidad.** Sin importar cuál elijan, el proyecto debe mostrar cómo aborda la seguridad de la red.
-
-> 📖 El detalle de cada modalidad está en su template. El formato del documento (portada UTN, A4, estilo) está en `templates/template-documento.md`.
-
----
-
-## 3. Arrancar: fork + grupo + colaboradores
-
-### 3.1. Un integrante hace el fork
-
-1. Ese integrante entra a este repositorio y hace **Fork** (botón arriba a la derecha).
-2. Ahora tiene una copia en su cuenta: `tu-usuario/goys-tp4-integrador`.
-
-### 3.2. Sumar colaboradores (compañeros + docentes)
-
-1. En el fork, ir a **Settings → Collaborators and teams → Add people**.
-2. Agregar a **cada integrante** del grupo (por su usuario de GitHub).
-3. Agregar también a los **docentes** para que puedan revisar el trabajo:
-   - `ofalabel` — **Osvaldo Falabella** (titular de la materia)
-   - `rodriguezemautn` — **Emanuel Rodríguez** (bloque Redes/Operación)
-4. Cada uno acepta la invitación (llega por mail/notificación).
-
-> ⚠️ **Todos los integrantes deben aparecer como colaboradores y con commits propios.** Si alguien no aparece en el historial de git, no acredita el TP.
-
-### 3.3. Clonar y configurar identidad
+Hace falta Docker con Compose v2 (Docker Desktop en Windows, con Git Bash). Desde `demo/`:
 
 ```bash
-# Cada integrante clona el fork
-git clone https://github.com/<grupo>/goys-tp4-integrador.git
-cd goys-tp4-integrador
-
-# Configurar identidad (usar el mail de la facultad)
-git config user.name "Apellido, Nombre"
-git config user.email "tu-email@alumnos.frlp.utn.edu.ar"
+./ansible/ejecutar.sh      # construye, levanta y verifica todo (la 2.ª corrida da changed=0)
+./demo.sh                  # la demo de la Feria, paso a paso
 ```
 
----
+Grafana queda en <http://127.0.0.1:3000>. Por defecto el agente usa un modelo simulado,
+sin GPU. Para Llama 3.1 8B local (GPU NVIDIA) y para dejar la notebook lista para
+correr sin Internet, ver [`demo/offline/`](demo/offline/README.md).
 
-## 4. Estructura del repositorio
-
-```
-goys-tp4-integrador/
-├── README.md              # esta guía
-├── progreso.md            # bitácora del grupo (qué hizo cada uno)
-├── templates/             # templates de modalidad + documento + checklist
-├── documento/             # documento final (PDF + fuente)
-├── poster/                # póster A1 (editable + PDF) + guía
-├── demo/                  # código/scripts de la demo (estación)
-├── capturas/              # capturas y evidencias
-└── diagramas/             # diagramas de arquitectura/topología
-```
-
----
-
-## 5. Trabajo colaborativo (cómo laburar en grupo)
-
-### Flujo recomendado (ramas cortas + pull requests)
+Para regenerar los PDF después de editar el documento o el póster:
 
 ```bash
-# 1. Actualizar antes de empezar
-git pull origin main
-
-# 2. Rama por tarea
-git checkout -b documento-introduccion
-
-# 3. Trabajar y commitear seguido (mensajes claros)
-git add .
-git commit -m "documento: escribe introducción y objetivos"
-
-# 4. Subir y abrir PR
-git push origin documento-introduccion
-# En GitHub: abrir Pull Request → otro integrante revisa → merge
-
-# 5. Volver a main y repetir
-git checkout main
-git pull origin main
+pip install markdown
+python documento/generar_pdf.py
 ```
 
-### Reglas de oro
+## Tecnologías
 
-- **Commits de TODOS**: cada integrante commitea con su usuario. Verificar al final con `git log --oneline`.
-- **No pushear directo a `main` sin revisar** (usar PRs para el documento y decisiones grandes).
-- **Pull antes de push** para no pisar trabajo ajeno.
-- **Nada de binarios/secretos**: no subir contraseñas, IPs privadas reales ni archivos pesados (ver `.gitignore`).
+| Área | Qué usamos |
+|---|---|
+| Redes | Docker Compose: cuatro segmentos sin NAT, router Alpine con `iptables` y contención por API |
+| Operación | Ansible (en un contenedor de control), Prometheus y Grafana |
+| Seguridad | Reglas MITRE ATT&CK, aprobación humana con tokens por rol, ledger con hash encadenado (HMAC) |
+| IA | Ollama con Llama 3.1 8B local; el agente valida cada respuesta del modelo |
+| Lenguaje | Python 3 (biblioteca estándar en los servicios), Bash |
 
----
+## Estructura
 
-## 6. Entregables (comunes a las 3 modalidades)
-
-| Elemento | Descripción |
-|----------|-------------|
-| 📄 **Documento** | 5-7 págs (modalidades A y B) o 6-8 (C), en PDF, en `documento/` |
-| 🖼️ **Póster A1** | Sintetiza problema, metodología, resultados y conclusiones. Autocontenido. En `poster/` |
-| 💻 **Demo / estación** | Funciona en la laptop del grupo, **offline**. En `demo/` |
-| 📂 **Repositorio** | Documento, fuentes, configs, capturas, póster editable + PDF |
-
-> ✅ Checklist completo en `templates/checklist-entrega.md`. Usarlo antes del ensayo y antes de la Feria.
-
----
-
-## 7. Cronograma
-
-| Momento | Qué pasa |
-|---------|----------|
-| Clase 2 (jueves 20/8) | Se forman los grupos (3-4), los mismos para toda la cursada |
-| Durante la cursada | Cada clase alimenta el TP4; el grupo define modalidad y tema |
-| Jueves 29/10 | Muestra TP3 + preparación/ensayos del TP4 |
-| Jueves 5/11 | **Feria de Redes** — muestra y defensa |
-
----
-
-## 8. Evaluación (60%)
-
-La nota combina **dimensión técnica (60%)** y **"Saber Ser" (40%)** — trabajo en equipo, comunicación, compromiso, pensamiento crítico, ética.
-
-- **Promoción directa:** TP4 >= 6 (con todos los TPs >= 6 y 75% de asistencia).
-- **Cursada regular:** TP4 >= 4 (más el resto de condiciones).
-
-> ⚠️ **Ausencia injustificada en la Feria = TP4 desaprobado.**
-
----
-
-**GOYS — UTN FR La Plata** · Titular: Osvaldo Falabella · Bloque Redes/Operación: Emanuel Rodríguez
+```
+├── documento/    documento final (PDF + Markdown) y el script que genera los PDF
+├── poster/       póster A1 (HTML + PDF), imágenes y guía de la cátedra
+├── demo/         laboratorio, servicios, Ansible, monitoreo y demo
+├── capturas/     evidencias de la demo, Grafana y pruebas de red
+├── diagramas/    topología del laboratorio
+├── templates/    templates de la cátedra
+└── progreso.md   bitácora del grupo
+```
