@@ -79,7 +79,7 @@ telemetría. Si alguien agrega una regla que no se puede probar con los escenari
 el test falla.
 
 ```bash
-cd demo/deteccion && python -m pytest -q    # 34 tests (detección y correlación), sin Docker
+cd demo/deteccion && python -m pytest -q    # 46 tests (detección y correlación), sin Docker
 ```
 
 ## Cómo funciona
@@ -96,8 +96,11 @@ cd demo/deteccion && python -m pytest -q    # 34 tests (detección y correlació
 
 ## Correlación
 
-Corre en el mismo servicio, en un hilo propio. El agente responde de forma
-sincrónica y puede tardar hasta 120 s, así que esa espera no frena la detección.
+Corre en el mismo servicio, en dos hilos propios: uno agrupa las alertas en incidentes
+y cierra los inactivos, y el otro se los manda al agente. El agente responde de forma
+sincrónica, y con Llama tarda entre 15 s y más de un minuto por incidente. Si el envío
+frenara el agrupamiento, una alerta que llega mientras tanto se sumaría tarde y podría
+quedar en el mismo incidente que un ataque posterior.
 
 ```
 abierto ──(20 s sin alertas nuevas del host, o 5 min de duración)──▶ pendiente
@@ -114,9 +117,12 @@ pendiente ──POST /incidentes──▶ enviado     (201 nuevo, 200 ya analiza
 - **Los reintentos mandan exactamente el mismo contenido,** así el agente los reconoce
   como reintentos (`200`) y no como un incidente distinto.
 - **Contexto para el agente.** Además de los eventos que dispararon alertas, el
-  incidente incluye los eventos del mismo host alrededor de esos ids (hasta 40). Así el
-  agente ve, por ejemplo, la conexión establecida al espejo que acompaña a una descarga
-  benigna. Si la ingesta no responde, van solo los eventos citados.
+  incidente incluye eventos del mismo host cercanos a esos ids y a menos de
+  `VENTANA_CONTEXTO` (10 s) del primero y del último, del más cercano al más lejano
+  mientras el JSON no pase de `MAX_CARACTERES`. Así el agente ve, por ejemplo, la
+  conexión establecida al espejo que acompaña a una descarga benigna, pero no las pruebas
+  de red que se corrieron un rato antes en el mismo host (con Llama, las tomaba como parte
+  del ataque). Si la ingesta no responde, van solo los eventos citados.
 - **IDs que no chocan:** `INC-<prefijo>-000001`. El prefijo se genera una vez por
   instalación. Si se borra el almacén de incidentes pero el ledger del agente sigue, un
   incidente nuevo no se confunde con uno viejo.

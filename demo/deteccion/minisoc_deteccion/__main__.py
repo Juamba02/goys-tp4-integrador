@@ -63,8 +63,10 @@ def main() -> None:
             enviar_http(url_agente, token), contexto_http(url_ingesta),
             inactividad=float(os.environ.get("CORRELACION_INACTIVIDAD", "20")),
             duracion_max=float(os.environ.get("CORRELACION_DURACION_MAX", "300")))
-        # Hilo propio: el agente puede tardar hasta 120 s y eso no frena la detección.
-        _en_hilo("correlacion", correlador.ciclo, intervalo)
+        # Hilos propios: el agente puede tardar hasta 120 s y eso no frena la detección
+        # ni el agrupamiento de alertas en incidentes (ver Correlador.agrupar).
+        _en_hilo("correlacion", correlador.agrupar, intervalo)
+        _en_hilo("envio", correlador.despachar, intervalo)
         log.info("correlación activa: incidentes a %s tras %.0f s sin alertas del host (prefijo %s)",
                  url_agente, correlador.inactividad, correlador.prefijo)
     else:
