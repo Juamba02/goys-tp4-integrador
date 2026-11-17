@@ -316,10 +316,12 @@ antes del veredicto. Un modelo simulado sirve para los tests y como plan B.
 
 ### 4.1. Pruebas de conectividad
 
-`red/verificar.sh` corre 31 pruebas desde los contenedores. Cada una distingue entre
+`red/verificar.sh` corre 44 pruebas desde los contenedores: las rutas por defecto,
+32 conexiones y que Prometheus lea a cada servicio. Cada conexión distingue entre
 *abierto*, *rechazado* (llegó, pero el puerto está cerrado) y *bloqueado* (lo descartó
-el router). Las 31 pasan: cada nodo sale por la .254 de su segmento, y los flujos de
-la Tabla 1 llegan a destino.
+el router). Todas pasan: cada nodo sale por la .254 de su segmento, y los flujos de
+la Tabla 1 llegan a destino. Las 3 pruebas de Ollama corren solo con su contenedor
+arriba: sin él, "bloqueado" saldría igual aunque el router dejara pasar todo.
 
 ### 4.2. Pruebas de segmentación
 
@@ -342,7 +344,23 @@ baja. De punta a punta (`demo.sh`), el veredicto llega unos 30 s después del at
 (20 s son la espera de la correlación) y el bloqueo aprobado se aplica en menos de 2 s.
 La red, la ingesta, la detección y la respuesta suman 102 pruebas automáticas.
 
-[Pendiente: 4.3 Automatización]
+### 4.3. Pruebas de automatización y monitoreo
+
+Tabla 4: Corridas de Ansible y del modo offline sobre el laboratorio
+
+| Prueba | Resultado |
+|--------|-----------|
+| Primera corrida | `changed=2` (imágenes nuevas, servicios recreados) · pruebas de red OK |
+| Segunda corrida · `--check` | `changed=0`; con `--check` no toca nada |
+| Grafana parado a mano | `changed=1`: lo levanta y queda sano |
+| Modelo inválido (`-e minisoc_llm=gpt`) | falla antes de tocar nada |
+| Pasar a Llama y volver al simulado | levanta Ollama (44 OK) y lo apaga (41 OK, 3 omitidas); cada segunda corrida, `changed=0` |
+| Exportar e importar, sin la imagen de Ollama ni los modelos | hashes OK, todo cargado en 9 min y el 8B responde en la GPU |
+| Llama 3.1 8B en la PC de desarrollo (RTX 3080) | 5,3 GB, 100 % en GPU · veredicto en 3,4 s (webshell) y 1,9 s (benigno) |
+| Llama 3.1 8B en la notebook de la Feria (GTX 1660 Ti 6 GB) | [Pendiente: medir con `ollama ps`] |
+
+Del lado del monitoreo, `verificar.sh` comprueba que Prometheus lea a los seis
+objetivos, y 10 pruebas automáticas cubren la lectura de los contadores del router.
 
 ### 4.4. Pruebas del agente y del ledger
 
