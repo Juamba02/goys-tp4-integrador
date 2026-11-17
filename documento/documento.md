@@ -1,5 +1,7 @@
 # MiniSOC-IA: centro de operaciones de seguridad asistido por IA sobre una red segmentada, automatizada y monitoreada
 
+<img src="img/logo-utn.png" alt="Logo de la Universidad Tecnológica Nacional" width="240">
+
 **Universidad Tecnológica Nacional** — Facultad Regional La Plata
 
 **Carrera:** Ingeniería en Sistemas de Información
@@ -17,10 +19,7 @@
 - Costa, Tomás
 - Mazza, Joaquín
 
-**Fecha de entrega:** [completar]
-
-> Inspirado en [AiSOC](https://github.com/beenuar/AiSOC) (licencia MIT), reducido al
-> alcance de un trabajo de cátedra.
+**Fecha de entrega:** 17/11/2026
 
 ---
 
