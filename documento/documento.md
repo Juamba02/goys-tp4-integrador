@@ -157,8 +157,6 @@ ataque, actúa sobre el router.
 
 ### 2.2. Componentes
 
-[Pendiente: filas de automatización y monitoreo]
-
 | Componente | Tecnología | Función |
 |------------|------------|---------|
 | Router y firewall | Alpine Linux + iptables | Une los cuatro segmentos, descarta todo lo no permitido y aplica la contención |
@@ -170,6 +168,8 @@ ataque, actúa sobre el router.
 | Agente de triage | Python 3 (biblioteca estándar) | Consulta al modelo, valida su respuesta y deja las acciones para que el analista las apruebe |
 | Modelo de lenguaje | Ollama + Llama 3.1 8B local (3B sin GPU) | Propone veredicto, justificación y acciones; no tiene acceso a la red |
 | Ledger | JSONL con hash encadenado (HMAC) | Registro auditable de cada paso del agente y de cada decisión humana |
+| Automatización | Ansible (`ansible-core`) en un contenedor de control | Prepara, levanta y verifica el laboratorio con un solo comando; corrige lo que se desvió |
+| Monitoreo | Prometheus + Grafana | Lee las métricas de la red y del SOC cada 5 s, evalúa 11 alertas y las muestra en un dashboard |
 
 ### 2.3. Flujo de datos
 
@@ -237,7 +237,52 @@ gestión y la telemetría. Este servicio rechaza actuar sobre redes internas o s
 SOC, aunque el pedido venga autenticado, y cada regla lleva el identificador de la
 acción, para revertirla con exactitud.
 
-[Pendiente: 3.3 Automatización · 3.4 Monitoreo]
+### 3.3. Automatización
+
+Un solo comando, `./ansible/ejecutar.sh`, prepara, levanta y verifica el
+laboratorio. Ansible no corre nativo en Windows, así que va en un contenedor de
+control que maneja el Docker de la notebook por su socket. Ese contenedor no está en
+ninguna red del laboratorio, y ningún contenedor del laboratorio tiene el socket. No
+usa SSH: los nodos no tienen `sshd`, y el laboratorio se instala con Docker Compose.
+
+El *playbook* tiene tres roles. `preparacion` comprueba Docker y Compose, genera los
+tokens del `.env` sin dejar ninguno vacío y fija el modelo del agente. `laboratorio`
+construye las imágenes, levanta los servicios y espera sus *healthchecks*.
+`verificacion` corre las pruebas de red, verifica el ledger y comprueba que Grafana
+tenga el dashboard; no cambia nada.
+
+**Idempotencia.** La segunda corrida termina con `changed=0`, y si algo se desvió (un
+contenedor caído, una imagen vieja) lo corrige y lo informa como cambio. Para eso, el
+cambio se mide comparando los identificadores de las imágenes antes y después de
+construir. Dos detalles lo hacían fallar: ocho servicios comparten una imagen y, si
+se construían juntos, competían por la etiqueta; y Docker agrega por defecto
+metadatos de procedencia con la hora del *build*, que cambian el identificador.
+
+**Modelo local y modo offline.** El modelo del agente se elige en el `.env`, que
+leen igual Ansible, `demo.sh` y Compose. Con Llama, Ansible levanta Ollama en el
+segmento SOC (`10.30.0.70`) con la GPU de la notebook: solo el agente llega a él, y
+no tiene salida a Internet. Con el modelo simulado, lo apaga para liberar la GPU. La
+demo de la Feria corre sin Internet, así que `offline/` baja antes las imágenes y los
+modelos, y puede llevarlos a otra notebook en un pendrive, con sus hashes.
+
+### 3.4. Monitoreo
+
+Prometheus lee cada 5 s las métricas del router, la ingesta, la detección, el agente
+y el respondedor, y Grafana las muestra en un dashboard que se carga desde el repo al
+arrancar. Los dos van en el segmento SOC, no en gestión: el agente no usa el router
+como *gateway*, así que no le podría contestar a un Prometheus de otro segmento. Así
+no cruzan el router y la política de firewall queda igual.
+
+**Métricas del firewall.** El router publica los contadores de `iptables`: paquetes
+descartados por segmento de origen, contenciones activas (una por acción aprobada) y
+paquetes que cortó la contención. Ese puerto se abre solo a la IP de Prometheus.
+
+**Dashboard y alertas.** El dashboard tiene cuatro filas: estado del SOC, detección y
+red, agente de IA, y alertas y acciones. Las 11 alertas cubren servicios caídos, el
+ledger roto, errores del modelo, veredictos lentos, acciones sin aprobar y tráfico
+descartado desde Internet o entre segmentos. No hay Alertmanager, porque sin Internet
+no hay a dónde mandar avisos: las alertas se ven en el dashboard. Grafana es el único
+puerto publicado, y solo en `127.0.0.1`, así que no se ve desde la red de la Feria.
 
 ### 3.5. Agente de IA y ledger
 
