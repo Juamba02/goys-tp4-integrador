@@ -33,11 +33,18 @@ modelo=$(grep -E '^OLLAMA_MODELO=' .env 2>/dev/null | cut -d= -f2); modelo=${mod
 if grep -qx 'LLM_BACKEND=ollama' .env 2>/dev/null && ! grep -qx "$modelo" <<< "${modelos:-}"; then
     printf '  FALTA  modelo %s (el .env pide LLM_BACKEND=ollama)\n' "$modelo"; faltan=$((faltan + 1))
 fi
+# Sin el perfil, Ollama no arranca y el agente deja todo en "indeterminado".
+if grep -qx 'LLM_BACKEND=ollama' .env 2>/dev/null &&
+   ! grep -qE '^COMPOSE_PROFILES=(.*,)?ollama(,.*)?$' .env; then
+    printf '  FALTA  COMPOSE_PROFILES=ollama en .env (el .env pide LLM_BACKEND=ollama;\n'
+    printf '         ./ansible/ejecutar.sh -e minisoc_llm=ollama deja las dos)\n'
+    faltan=$((faltan + 1))
+fi
 
 echo
 if [[ $faltan -eq 0 ]]; then
     echo "Listo para correr sin Internet."
 else
-    echo "Faltan cosas ($faltan): correr ./offline/preparar.sh con Internet."
+    echo "Faltan cosas ($faltan). Imágenes y modelos: ./offline/preparar.sh, con Internet."
     exit 1
 fi
