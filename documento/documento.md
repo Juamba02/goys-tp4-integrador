@@ -192,7 +192,7 @@ Tabla 5: Corridas de Ansible y del modo offline
 | Segunda corrida · `--check` | `changed=0`; con `--check` no toca nada |
 | Pasar a Llama y volver al simulado | levanta y apaga Ollama; 44 OK y 41 OK con 3 omitidas |
 | Exportar e importar en otra notebook | hashes OK y el 8B responde en la GPU |
-| Llama 3.1 8B en la 1660 Ti de la Feria | 5,6 GB, 75 % en GPU · ~45 s por veredicto |
+| Llama 3.1 8B en la 1660 Ti de la Feria | 5,6 GB, 75 % en GPU · ~45 s por veredicto; ~90 s el primero, que carga el modelo |
 
 ## 5. Limitaciones y trabajo futuro
 
