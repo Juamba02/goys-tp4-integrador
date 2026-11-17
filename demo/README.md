@@ -64,7 +64,7 @@ Tabla 1: los 11 pasos de la demo.
 | [`respondedor/`](respondedor/README.md) | Aplica en el router lo que aprobó el analista (`10.30.0.30`) | 9 + 21 tests |
 | [`ansible/`](ansible/README.md) | Despliegue idempotente y verificación con un comando (`./ansible/ejecutar.sh`) | 2.ª corrida `changed=0` |
 | [`offline/`](offline/README.md) | Llama local (Ollama `10.30.0.70`, perfil `ollama`) y todo listo para correr sin Internet | `comprobar.sh` |
-| [`monitoreo/`](monitoreo/README.md) | Prometheus (`10.30.0.60`) y Grafana en <http://127.0.0.1:3000>, 11 alertas | 8 tests del router |
+| [`monitoreo/`](monitoreo/README.md) | Prometheus (`10.30.0.60`) y Grafana en <http://127.0.0.1:3000>, 11 alertas | 10 tests del router |
 
 Scripts: `preparar.sh` genera los tokens en `.env`; `simular.sh` corre un escenario;
 `revertir.sh` muestra o revierte contenciones; `demo.sh` corre la demo.
