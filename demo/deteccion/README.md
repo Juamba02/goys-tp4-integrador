@@ -79,7 +79,7 @@ telemetría. Si alguien agrega una regla que no se puede probar con los escenari
 el test falla.
 
 ```bash
-cd demo/deteccion && python -m pytest -q    # 34 tests (detección y correlación), sin Docker
+cd demo/deteccion && python -m pytest -q    # 46 tests (detección y correlación), sin Docker
 ```
 
 ## Cómo funciona
