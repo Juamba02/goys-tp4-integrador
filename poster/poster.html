@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MiniSOC-IA — Póster A1</title>
+  <!--
+    Póster A1 vertical (594 × 841 mm) para la Feria GOYS 2026.
+    Para imprimir: abrir en Chrome → Imprimir → Guardar como PDF, tamaño A1, márgenes
+    "Ninguno", con "Gráficos de fondo" activado.
+  -->
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* Tres colores: azul oscuro, azul de acento y grises. */
+    :root {
+      --primario: #1a365d;
+      --acento: #2b6cb0;
+      --fondo-seccion: #f7fafc;
+      --texto: #2d3748;
+      --texto-suave: #4a5568;
+      --borde: #e2e8f0;
+    }
+
+    @page { size: 594mm 841mm; margin: 0; }
+
+    html, body { background: #ffffff; }
+
+    body {
+      font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--texto);
+      line-height: 1.35;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .poster {
+      width: 594mm;
+      height: 841mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    /* ── Encabezado ── */
+    .encabezado {
+      background: var(--primario);
+      color: #ffffff;
+      padding: 12mm 30mm 10mm;
+      text-align: center;
+    }
+    .encabezado .evento {
+      font-size: 24pt;
+      letter-spacing: 2pt;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 2mm;
+    }
+    .encabezado h1 {
+      font-size: 68pt;
+      font-weight: 800;
+      line-height: 1.05;
+    }
+    .encabezado .subtitulo {
+      font-size: 32pt;
+      font-weight: 400;
+      margin-top: 3mm;
+      opacity: 0.95;
+    }
+    .encabezado .grupo {
+      font-size: 26pt;
+      margin-top: 5mm;
+      opacity: 0.9;
+    }
+    .encabezado .grupo strong { font-weight: 600; }
+
+    /* ── Contenido ── */
+    .contenido {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: min-content;
+      gap: 6mm;
+      padding: 6mm 24mm;
+    }
+
+    .seccion {
+      background: var(--fondo-seccion);
+      border: 1px solid var(--borde);
+      border-radius: 5mm;
+      padding: 6mm 10mm;
+    }
+    .ancho { grid-column: 1 / -1; }
+
+    .seccion h2 {
+      font-size: 34pt;
+      color: var(--primario);
+      border-bottom: 3px solid var(--acento);
+      padding-bottom: 2mm;
+      margin-bottom: 4mm;
+    }
+
+    .seccion p, .seccion li { font-size: 24pt; }
+    .seccion p + p { margin-top: 3mm; }
+    .seccion ul { padding-left: 9mm; }
+    .seccion li + li { margin-top: 2mm; }
+
+    .pie-figura {
+      font-size: 20pt;
+      color: var(--texto-suave);
+      margin-top: 2mm;
+    }
+
+    .diagrama img { width: 100%; display: block; background: #ffffff; border-radius: 3mm; }
+
+    /* Pipeline de cinco etapas */
+    .etapas { list-style: none; padding: 0 !important; counter-reset: etapa; }
+    .etapas li {
+      counter-increment: etapa;
+      position: relative;
+      padding-left: 15mm;
+      min-height: 11mm;
+    }
+    .etapas li::before {
+      content: counter(etapa);
+      position: absolute; left: 0; top: 0.5mm;
+      width: 10mm; height: 10mm;
+      border-radius: 50%;
+      background: var(--acento);
+      color: #ffffff;
+      font-size: 20pt; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .herramientas { margin-top: 5mm; font-size: 22pt !important; color: var(--texto-suave); }
+
+    /* Cifras */
+    .cifras {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6mm;
+    }
+    .cifra {
+      background: #ffffff;
+      border: 1px solid var(--borde);
+      border-left: 3mm solid var(--acento);
+      border-radius: 3mm;
+      padding: 4mm 6mm;
+    }
+    .cifra .valor {
+      font-size: 48pt;
+      font-weight: 800;
+      color: var(--primario);
+      line-height: 1;
+    }
+    .cifra .que { font-size: 21pt; margin-top: 2mm; }
+
+    .captura { margin-top: 4mm; }
+    .captura img {
+      width: 100%;
+      display: block;
+      border: 1px solid var(--borde);
+      border-radius: 3mm;
+    }
+
+    /* ── Pie ── */
+    .pie {
+      background: var(--primario);
+      color: #ffffff;
+      padding: 5mm 24mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10mm;
+    }
+    .pie .datos { font-size: 20pt; display: flex; flex-direction: column; gap: 1.5mm; }
+    .pie .repo { font-size: 26pt; font-weight: 600; }
+    .pie .qr {
+      background: #ffffff;
+      border-radius: 3mm;
+      padding: 2mm;
+      text-align: center;
+      color: var(--primario);
+      font-size: 16pt;
+      font-weight: 600;
+    }
+    .pie .qr img { width: 42mm; height: 42mm; display: block; }
+
+    /* Vista previa en pantalla: el póster entero, a escala. */
+    @media screen {
+      body { background: #cbd5e0; padding: 16px; }
+      .poster { margin: 0 auto; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15); }
+    }
+    @media print {
+      body { padding: 0; background: #ffffff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+
+    <header class="encabezado">
+      <p class="evento">Feria de Redes GOYS 2026 · UTN FRLP</p>
+      <h1>MiniSOC-IA</h1>
+      <p class="subtitulo">Un SOC asistido por IA local, sobre una red segmentada,<br>automatizada y monitoreada</p>
+      <p class="grupo">Grupo 13 — <strong>Aramberri, Juan Bautista</strong> · <strong>Costa, Tomás</strong> · <strong>Mazza, Joaquín</strong></p>
+    </header>
+
+    <main class="contenido">
+
+      <section class="seccion ancho">
+        <h2>Problema y objetivo</h2>
+        <p><strong>Problema:</strong> un SOC recibe más alertas de las que puede revisar. Un
+          modelo de lenguaje ayuda a analizarlas, pero puede afirmar algo sin evidencia o
+          cambiar la red sin supervisión.</p>
+        <p><strong>Objetivo:</strong> detectar, investigar y contener ataques con un LLM
+          local que cite la evidencia, con aprobación humana y cada decisión auditable.
+          Todo corre en una notebook, sin Internet.</p>
+      </section>
+
+      <section class="seccion diagrama">
+        <h2>Arquitectura de red</h2>
+        <img src="../diagramas/red-minisoc.svg" alt="Cuatro segmentos (externo, servicios, gestión y SOC) unidos por un router con firewall">
+        <p class="pie-figura">Cuatro redes de Docker unidas por un router con
+          <code>iptables</code>: todo lo no permitido se descarta y nadie sale a Internet.
+          El SOC no inicia conexiones; para contener, le pide al router.</p>
+      </section>
+
+      <section class="seccion">
+        <h2>Cómo funciona</h2>
+        <ul class="etapas">
+          <li><strong>Sensor</strong> en cada servicio: procesos y conexiones nuevas</li>
+          <li><strong>Detección</strong>: 9 reglas MITRE ATT&amp;CK</li>
+          <li><strong>Correlación</strong>: alertas del mismo host → un incidente</li>
+          <li><strong>Agente de IA</strong> (Llama 3.1 8B local): veredicto citando los eventos</li>
+          <li><strong>Analista</strong> aprueba → el router bloquea o aísla</li>
+        </ul>
+        <p class="herramientas">Docker Compose · iptables · Ansible · Prometheus · Grafana ·
+          Ollama · Python. Cada paso del agente queda en un <em>ledger</em> con hash encadenado.</p>
+      </section>
+
+      <section class="seccion ancho">
+        <h2>Resultados</h2>
+        <div class="cifras">
+          <div class="cifra">
+            <div class="valor">44 / 44</div>
+            <div class="que">pruebas de rutas, segmentación y monitoreo</div>
+          </div>
+          <div class="cifra">
+            <div class="valor">~30 s</div>
+            <div class="que">del ataque al veredicto (20 s son la espera de la correlación)</div>
+          </div>
+          <div class="cifra">
+            <div class="valor">&lt; 2 s</div>
+            <div class="que">para aplicar en el router el bloqueo aprobado</div>
+          </div>
+          <div class="cifra">
+            <div class="valor">15 → 0</div>
+            <div class="que">ataques que el agente cerraba solo como benignos (de 36 errores)</div>
+          </div>
+          <div class="cifra">
+            <!-- Medido en la PC de desarrollo. Reemplazar con lo de la GTX 1660 Ti de la Feria. -->
+            <div class="valor">3,4 s</div>
+            <div class="que">por veredicto con Llama 3.1 8B en GPU (RTX 3080)</div>
+          </div>
+          <div class="cifra">
+            <div class="valor">changed=0</div>
+            <div class="que">en la 2.ª corrida de Ansible: el despliegue es idempotente</div>
+          </div>
+        </div>
+        <figure class="captura">
+          <img src="img/grafana-demo.png" alt="Grafana durante la demo: alertas por técnica MITRE y paquetes cortados por la contención">
+          <figcaption class="pie-figura">Grafana durante la demo: las alertas por técnica MITRE
+            (T1059 es el webshell) y, a la derecha, los paquetes que corta en el router
+            la contención aprobada por el analista.</figcaption>
+        </figure>
+      </section>
+
+      <section class="seccion ancho">
+        <h2>Conclusiones</h2>
+        <ul>
+          <li><strong>Lo que hace seguro al sistema no es el modelo, sino los controles.</strong>
+            Ningún modelo resistió la inyección de prompt: la frenaron la validación de su
+            respuesta y la aprobación humana.</li>
+          <li><strong>Automatizar y medir hace reproducible la demo:</strong> un comando la
+            reconstruye y la verifica, y el dashboard muestra en vivo el ataque, el
+            veredicto y la contención.</li>
+          <li><strong>Límites:</strong> los modelos chicos se equivocan seguido; dentro de un
+            segmento no hay filtrado. A futuro: microsegmentación y un sensor eBPF.</li>
+        </ul>
+      </section>
+
+    </main>
+
+    <footer class="pie">
+      <div class="datos">
+        <span class="repo">github.com/Juamba02/goys-tp4-integrador</span>
+        <span>Código, documento y demo completos · Gestión Operativa y Seguridad en Redes, ISI</span>
+      </div>
+      <div class="qr">
+        <img src="img/qr-repo.svg" alt="Código QR al repositorio">
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>
