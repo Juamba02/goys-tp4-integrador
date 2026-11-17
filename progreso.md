@@ -49,5 +49,5 @@
 
 ## 📝 Notas
 
-- Pendiente en la notebook de la Feria (GTX 1660 Ti): medir el 8B con `ollama ps` y completar la Tabla 5 del documento, la tabla de `demo/offline/README.md` y la cifra de 3,4 s del póster.
+- Medido en la notebook de la Feria (GTX 1660 Ti, 17/11/2026): el 8B ocupa 5,6 GB y queda 25 % en la CPU; cada veredicto tarda ~45 s (ataque) y ~18 s (benigno), y del ataque al veredicto pasan ~70 s. Ya está en el documento, el póster y `demo/offline/README.md`.
 - La demo se ensaya con el laboratorio limpio, para que Grafana no muestre acciones pendientes de corridas anteriores.
