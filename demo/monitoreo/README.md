@@ -84,7 +84,7 @@ Tabla 3: reglas de alerta.
 | `FirewallSinLectura` | el router no puede leer iptables | alta |
 | `ErroresDelModelo` | el LLM falló en los últimos 5 min | alta |
 | `TelemetriaPerdida` | un sensor descartó eventos por cola llena | media |
-| `VeredictoLento` | el p90 de evento a veredicto supera 1 min | media |
+| `VeredictoLento` | el p90 de evento a veredicto supera 2 min (con Llama 8B en la 1660 Ti, lo normal es 55 a 110 s) | media |
 | `AlertaDeteccionAlta` | disparó una regla de severidad alta | alta |
 | `AccionEsperandoAprobacion` | hay una contención sin aprobar hace 1 min | alta |
 | `TraficoExternoDescartado` | más de 5 paquetes/s descartados desde Internet | media |

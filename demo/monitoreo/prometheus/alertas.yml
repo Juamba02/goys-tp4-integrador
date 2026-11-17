@@ -48,11 +48,11 @@ groups:
           detalle: "El sensor descartó eventos por tener la cola llena: hay un hueco en la telemetría."
 
       - alert: VeredictoLento
-        expr: histogram_quantile(0.9, sum by (le) (rate(minisoc_agente_evento_a_veredicto_segundos_bucket[10m]))) > 60
+        expr: histogram_quantile(0.9, sum by (le) (rate(minisoc_agente_evento_a_veredicto_segundos_bucket[10m]))) > 120
         for: 1m
         labels: {severidad: media}
         annotations:
-          resumen: "El SOC tarda más de 1 min en dar veredicto"
+          resumen: "El SOC tarda más de 2 min en dar veredicto"
           detalle: "El 90 % de los incidentes tarda {{ $value | printf \"%.0f\" }} s desde el primer evento hasta el veredicto."
 
   - name: seguridad
