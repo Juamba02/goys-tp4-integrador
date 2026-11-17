@@ -1,0 +1,50 @@
+== Rutas por defecto
+  OK    ansible    default via 10.10.0.254 dev eth0 
+  OK    web-01     default via 10.20.0.254 dev eth0 
+  OK    ingesta    default via 10.30.0.254 dev eth0 
+  OK    respondedor default via 10.30.0.254 dev eth0 
+  OK    analista   default via 10.30.0.254 dev eth0 
+  OK    atacante   default via 10.99.0.254 dev eth0 
+== Conectividad y segmentación
+  OK    ansible   -> 10.20.0.11:22 abierto   gestión administra servicios por SSH
+  OK    ansible   -> 10.30.0.50:22 abierto   gestión administra el SOC por SSH
+  OK    ansible   -> 10.99.0.66:80 bloqueado gestión no sale a Internet
+  OK    web-01    -> 10.20.0.12:3000 abierto   dentro del segmento servicios no hay router
+  OK    web-01    -> 10.10.0.5:80  abierto   servicios bajan paquetes del espejo
+  OK    web-01    -> 10.10.0.10:22 bloqueado servicios no entran a gestión
+  OK    web-01    -> 10.30.0.10:8081 abierto   servicios mandan telemetría a la ingesta
+  OK    web-01    -> 10.30.0.50:22 bloqueado servicios no administran el SOC
+  OK    web-01    -> 10.99.0.66:80 bloqueado servicios no salen a Internet
+  OK    db-01     -> 10.10.0.5:80  abierto   la base también usa el espejo
+  OK    atacante  -> 10.20.0.11:80 abierto   Internet llega al servicio publicado
+  OK    atacante  -> 10.20.0.11:22 bloqueado Internet no llega al SSH del web
+  OK    atacante  -> 10.20.0.12:3000 bloqueado Internet no llega a la API
+  OK    atacante  -> 10.10.0.10:22 bloqueado Internet no llega a gestión
+  OK    atacante  -> 10.30.0.10:8081 bloqueado Internet no llega al SOC
+  OK    analista  -> 10.20.0.11:22 bloqueado el SOC no inicia conexiones a servicios
+  OK    analista  -> 10.10.0.10:22 bloqueado el SOC no inicia conexiones a gestión
+  OK    analista  -> 10.99.0.66:80 bloqueado el SOC no sale a Internet
+  OK    web-01    -> 1.1.1.1:443   bloqueado sin salida a la Internet real
+  OK    analista  -> 8.8.8.8:53    bloqueado sin salida a la Internet real (DNS)
+  OK    web-01    -> 10.20.0.1:22  bloqueado no se llega al host por el bridge de Docker
+  OK    atacante  -> 10.99.0.1:22  bloqueado el atacante tampoco llega al host
+  OK    web-01    -> 10.20.0.254:9000 bloqueado la contención del router no se ve desde servicios
+  OK    analista  -> 10.30.0.254:9000 bloqueado en el SOC, solo el respondedor llega a la contención
+  OK    atacante  -> 10.99.0.254:9000 bloqueado ni desde Internet
+  OK    analista  -> 10.30.0.254:9100 bloqueado en el SOC, solo Prometheus lee las métricas del router
+  OK    web-01    -> 10.20.0.254:9100 bloqueado las métricas del router no se ven desde servicios
+  OK    web-01    -> 10.30.0.60:9090 bloqueado servicios no llegan a Prometheus
+  OK    atacante  -> 10.30.0.61:3000 bloqueado Internet no llega a Grafana
+== Ollama (perfil ollama)
+  OMITIDAS (3): Ollama no está levantado, el agente usa el simulado
+== Monitoreo: Prometheus lee a cada servicio
+  OK    router       up
+  OK    ingesta      up
+  OK    deteccion    up
+  OK    agente       up
+  OK    respondedor  up
+  OK    prometheus   up
+== Paquetes descartados por la segmentación
+  52 paquetes descartados
+
+Resultado: 41 OK, 0 fallas, 3 omitidas
