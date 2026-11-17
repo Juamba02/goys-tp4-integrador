@@ -101,9 +101,9 @@ Tabla 2: Tráfico permitido entre segmentos (todo lo demás se descarta)
 -A FORWARD -j MINISOC-DENEGADO        # contadores de lo descartado
 ```
 
-**Sin salida a Internet.** Las redes no hacen NAT, cada nodo sale por el router y el
-router no tiene ruta por defecto. Una ruta `prohibit` impide llegar al host por el
-*bridge* de Docker.
+**Sin salida a Internet.** Las redes no hacen NAT y el router no tiene ruta por
+defecto. En los nodos con sensor, una ruta `prohibit` impide además llegar al host por
+el *bridge* de Docker.
 
 ### 3.2. Container networking
 
@@ -199,6 +199,7 @@ Tabla 5: Corridas de Ansible y del modo offline
 - **Red y detección:** dentro de un segmento no hay filtrado, así que `aislar_host`
   no corta el tráfico con los vecinos (haría falta microsegmentación). El sensor
   muestrea cada 50 ms y puede perder procesos cortos (un sensor eBPF lo resolvería).
+  Los servicios del SOC sin sensor todavía ven al host por el *bridge*.
 - **Agente y operación:** los modelos chicos se equivocan seguido, y en 6 GB el 8B no
   entra entero en la GPU. Ansible maneja una sola notebook, y sin Alertmanager las
   alertas solo se ven en el dashboard.
