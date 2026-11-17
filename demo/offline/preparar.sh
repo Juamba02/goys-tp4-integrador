@@ -6,8 +6,9 @@
 #   MODELOS=llama3.2:3b ./offline/preparar.sh   solo el 3B
 #   MODELOS= ./offline/preparar.sh              sin modelos (solo el simulado)
 #
-# Construye y baja todas las imágenes (incluida la de Ansible) y descarga los modelos
-# al volumen ollama-modelos. Al final comprueba que no falte nada.
+# Construye y baja las imágenes (incluida la de Ansible) y descarga los modelos al
+# volumen ollama-modelos. La imagen de Ollama (8,5 GB) se baja solo si hay modelos
+# para bajar o el .env pide LLM_BACKEND=ollama. Al final comprueba que no falte nada.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export MSYS_NO_PATHCONV=1 BUILDX_NO_DEFAULT_ATTESTATIONS=1
@@ -20,7 +21,11 @@ paso "Tokens del .env"
 
 paso "Imágenes del laboratorio"
 compose build --quiet
-compose pull --quiet --ignore-buildable
+if [[ -n "$MODELOS" ]] || usa_ollama; then
+    compose pull --quiet --ignore-buildable
+else
+    docker compose pull --quiet --ignore-buildable   # sin el perfil: sin Ollama
+fi
 (cd ansible && docker build -q -t "$IMAGEN_CONTROL" . >/dev/null)
 
 if [[ -n "$MODELOS" ]]; then

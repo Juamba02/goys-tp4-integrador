@@ -11,8 +11,14 @@ compose() { docker compose --profile ollama "$@"; }
 
 paso() { echo; echo -e "\033[1m== $1\033[0m"; }
 
-# Todas las imágenes que usa la demo, una por línea.
-imagenes() { { compose config --images; echo "$IMAGEN_CONTROL"; } | sort -u; }
+# ¿El .env pide Llama? Solo así la imagen de Ollama (8,5 GB) es obligatoria.
+usa_ollama() { grep -qx 'LLM_BACKEND=ollama' .env 2>/dev/null; }
+hay_imagen() { docker image inspect "$1" >/dev/null 2>&1; }
+
+# Las imágenes que usa la demo, una por línea, sin la de Ollama.
+imagenes() {
+    { compose config --images; echo "$IMAGEN_CONTROL"; } | sort -u | grep -vxF "$IMAGEN_OLLAMA"
+}
 
 # Nombre real del volumen de modelos (lleva el nombre del proyecto adelante).
 volumen_modelos() { echo "$(compose config | sed -n 's/^name: //p')_ollama-modelos"; }

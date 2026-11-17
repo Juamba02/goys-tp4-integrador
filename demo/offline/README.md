@@ -18,6 +18,12 @@ no tienen salida, así que los modelos se bajan con un Ollama temporal en el bri
 normal de Docker, que escribe en el mismo volumen. Para bajar solo uno:
 `MODELOS=llama3.2:3b ./offline/preparar.sh`.
 
+Para una notebook sin GPU, `MODELOS= ./offline/preparar.sh` no baja ni los modelos ni
+la imagen de Ollama, y la demo usa el modelo simulado. `comprobar.sh` muestra esa
+imagen como opcional (`---`) y la exige solo si el `.env` dice `LLM_BACKEND=ollama`.
+En ese caso también exige `COMPOSE_PROFILES=ollama`, porque sin el perfil Ollama no
+arranca. Ansible escribe las dos líneas.
+
 ### Si la notebook de la Feria no tiene Internet
 
 En una máquina con Internet, después de `preparar.sh`:
@@ -25,6 +31,9 @@ En una máquina con Internet, después de `preparar.sh`:
 ```bash
 ./offline/exportar.sh /e/minisoc      # imagenes.tar + modelos.tar + SHA256SUMS
 ```
+
+Si en esa máquina no está la imagen de Ollama, el paquete trae solo `imagenes.tar`
+(495 MB) y sirve para el modelo simulado.
 
 En la notebook de la Feria, con el repo clonado:
 
@@ -91,6 +100,9 @@ Tabla 2: pruebas de los scripts.
 | `preparar.sh` dos veces a la vez | la segunda avisa y no toca nada |
 | `exportar.sh` | `imagenes.tar` 3,7 GB + `modelos.tar` 6,5 GB, en 6 min |
 | Sin volumen de modelos ni imagen de Ollama, `importar.sh` | hashes ok, todo cargado y el 8B responde en GPU (9 min) |
+| `LLM_BACKEND=ollama` en `.env` sin `COMPOSE_PROFILES` | `comprobar.sh`: falta el perfil, sale con 1 |
+| Sin la imagen de Ollama, con el simulado | `comprobar.sh` listo · `exportar.sh` solo `imagenes.tar` · `importar.sh` listo |
+| `MODELOS= ./offline/preparar.sh` | no baja la imagen de Ollama |
 
 ## Limitaciones
 

@@ -17,11 +17,13 @@ paso "Integridad del paquete"
 paso "Imágenes"
 docker load -q < "$ORIGEN/imagenes.tar"
 
-paso "Modelos"
-./preparar.sh >/dev/null                               # compose necesita el .env
-compose create --no-recreate ollama >/dev/null 2>&1    # crea el volumen del proyecto
-docker run --rm --network none -v "$(volumen_modelos):/m" -v "$ORIGEN:/entrada:ro" \
-    --entrypoint tar "$IMAGEN_OLLAMA" -xf /entrada/modelos.tar -C /m
+./preparar.sh >/dev/null                                   # compose necesita el .env
+if [[ -f "$ORIGEN/modelos.tar" ]]; then                    # sin Ollama no viene
+    paso "Modelos"
+    compose create --no-recreate ollama >/dev/null 2>&1    # crea el volumen del proyecto
+    docker run --rm --network none -v "$(volumen_modelos):/m" -v "$ORIGEN:/entrada:ro" \
+        --entrypoint tar "$IMAGEN_OLLAMA" -xf /entrada/modelos.tar -C /m
+fi
 
 paso "Comprobación"
 ./offline/comprobar.sh
