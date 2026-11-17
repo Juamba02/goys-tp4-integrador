@@ -41,8 +41,8 @@ mapeadas a MITRE ATT&CK y una contención que es una regla de red, aplicada solo
 de que un analista la aprueba. Un agente con un LLM local (Llama 3.1 8B) da el
 veredicto citando los eventos, y cada paso queda en un *ledger* auditable.
 
-Las 44 pruebas de red pasan. En la demo, el veredicto llega unos 30 s después del
-ataque y el bloqueo aprobado se aplica en menos de 2 s. Los controles sobre el modelo
+Las 44 pruebas de red pasan. En la notebook de la Feria, el veredicto llega unos 70 s
+después del ataque y el bloqueo aprobado se aplica en menos de 2 s. Los controles sobre el modelo
 llevaron de 15 a 0 los ataques que el agente cerraba solo como benignos. No se usan
 exploits reales: se simula la telemetría que dejarían, en una red aislada (Ley 26.388).
 
@@ -190,19 +190,18 @@ Tabla 5: Corridas de Ansible y del modo offline
 | Prueba | Resultado |
 |--------|-----------|
 | Segunda corrida · `--check` | `changed=0`; con `--check` no toca nada |
-| Grafana parado a mano | `changed=1`: lo levanta y queda sano |
 | Pasar a Llama y volver al simulado | levanta y apaga Ollama; 44 OK y 41 OK con 3 omitidas |
 | Exportar e importar en otra notebook | hashes OK y el 8B responde en la GPU |
-| Llama 3.1 8B en la GTX 1660 Ti de la Feria | [Pendiente: medir con `ollama ps`] |
+| Llama 3.1 8B en la 1660 Ti de la Feria | 5,6 GB, 75 % en GPU · ~45 s por veredicto |
 
 ## 5. Limitaciones y trabajo futuro
 
 - **Red y detección:** dentro de un segmento no hay filtrado, así que `aislar_host`
   no corta el tráfico con los vecinos (haría falta microsegmentación). El sensor
   muestrea cada 50 ms y puede perder procesos cortos (un sensor eBPF lo resolvería).
-- **Agente y operación:** los modelos chicos se equivocan seguido y declaran confianza
-  alta igual; los tokens son por rol y no por persona. Ansible maneja una sola
-  notebook, y sin Alertmanager las alertas solo se ven en el dashboard.
+- **Agente y operación:** los modelos chicos se equivocan seguido, y en 6 GB el 8B no
+  entra entero en la GPU. Ansible maneja una sola notebook, y sin Alertmanager las
+  alertas solo se ven en el dashboard.
 
 ## 6. Conclusiones
 
