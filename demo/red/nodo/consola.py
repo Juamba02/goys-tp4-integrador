@@ -7,6 +7,7 @@
     consola esperar HOST DESDE [SEG]        espera el veredicto del próximo incidente de HOST
     consola aprobar ACC-0001 [ANALISTA]     aprueba una acción propuesta
     consola rechazar ACC-0001 MOTIVO        la rechaza
+    consola rechazar-pendientes MOTIVO      rechaza todas las que esperan decisión
     consola esperar-accion ACC-0001 [SEG]   espera a que el respondedor la ejecute
     consola esperar-cerrados [SEG]          espera a que no quede ningún incidente abierto
     consola ledger                          verifica la cadena del ledger del agente
@@ -156,6 +157,13 @@ def cmd_esperar_accion(accion_id: str, segundos: str = "30") -> int:
     return 1
 
 
+def cmd_rechazar_pendientes(motivo: str) -> int:
+    """Rechaza, con un motivo, todas las acciones que esperan a un humano."""
+    pendientes = pedir("GET", f"{AGENTE}/acciones?estado=pendiente")
+    errores = sum(cmd_decidir("rechazar", a["accion_id"], motivo) for a in pendientes)
+    return 1 if errores else 0
+
+
 def cmd_esperar_cerrados(segundos: str = "60") -> int:
     """Espera a que no quede ningún incidente abierto o pendiente de enviar."""
     limite = time.monotonic() + float(segundos)
@@ -182,6 +190,7 @@ COMANDOS = {
     "estado": cmd_estado, "ultimo": cmd_ultimo, "alertas": cmd_alertas, "esperar": cmd_esperar,
     "aprobar": lambda a, n="": cmd_decidir("aprobar", a, n),
     "rechazar": lambda a, m="": cmd_decidir("rechazar", a, m),
+    "rechazar-pendientes": cmd_rechazar_pendientes,
     "esperar-accion": cmd_esperar_accion, "esperar-cerrados": cmd_esperar_cerrados, "ledger": cmd_ledger,
 }
 

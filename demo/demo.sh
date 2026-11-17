@@ -60,7 +60,12 @@ paso "La red hace lo que dice el diseño" \
 # Las pruebas (SSH desde web-01, salida a Internet) también disparan alertas, como
 # corresponde. Se espera a que ese incidente se cierre para no mezclarlo con el ataque.
 echo -e "${G}   (esperando que se cierre el incidente que generaron las propias pruebas...)${F}"
-consola esperar-cerrados 90 >/dev/null
+consola esperar-cerrados 180 >/dev/null
+# Con Llama, ese incidente puede proponer aislar web-01. Se rechaza todo lo pendiente
+# antes del ataque, con un motivo que vale para cualquier acción (el ledger se audita):
+# también puede quedar algo de una corrida anterior que se cortó (comentario de Tomás).
+ANALISTA="${ANALISTA:-analista-feria}" consola rechazar-pendientes \
+    "limpieza antes de la demo: pendientes de corridas anteriores o de las pruebas de red" >/dev/null
 
 paso "Antes del ataque" "El atacante (Internet, 10.99.0.66) llega al portal publicado, como cualquier usuario."
 probar atacante 10.20.0.11 80
@@ -78,20 +83,44 @@ consola alertas "$ALERTA0"
 paso "Correlación y triage con IA" \
      "Las alertas del host se agrupan en un incidente; el agente lo analiza con un modelo local
    y cita la evidencia. Ninguna acción se ejecuta sola: nace pendiente."
-SALIDA=$(docker compose exec -T -u nodo analista consola esperar web-01 "$INC0" 90 </dev/null | tr -d '\r')
+SALIDA=$(docker compose exec -T -u nodo analista consola esperar web-01 "$INC0" 180 </dev/null | tr -d '\r')
 echo "$SALIDA" | grep -v '^ACCIONES='
-ACCION=$(echo "$SALIDA" | sed -n 's/^ACCIONES=\([^,]*\).*/\1/p')
+# Con Llama suelen venir dos: aislar web-01 y bloquear al atacante. Se aprueba el
+# bloqueo, que corta al atacante sin dejar al portal sin servicio; si no está, la primera.
+PLANO=$(echo "$SALIDA" | sed 's/\x1b\[[0-9;]*m//g')   # sin los colores de la consola
+ACCION=$(echo "$PLANO" | sed -n 's/.*acción propuesta \(ACC-[0-9]*\): bloquear_ip.*/\1/p' | head -1)
+[[ -n "$ACCION" ]] || ACCION=$(echo "$PLANO" | sed -n 's/^ACCIONES=\([^,]*\).*/\1/p')
 [[ -n "$ACCION" ]] || morir "el agente no propuso ninguna acción"
+TIPO=$(echo "$PLANO" | sed -n "s/.*acción propuesta $ACCION: \([a-z_]*\).*/\1/p")
+
+# Rechaza con un motivo las propuestas del incidente salvo la indicada: si quedaran
+# pendientes, Grafana mostraría la alerta AccionEsperandoAprobacion hasta la próxima
+# corrida (comentario de Tomás en el PR #9).
+rechazar_resto() {  # motivo [acción que no se toca]
+    local otra
+    for otra in $(echo "$PLANO" | sed -n 's/^ACCIONES=//p' | tr ',' ' '); do
+        [[ "$otra" == "${2:-}" ]] || ANALISTA="${ANALISTA:-analista-feria}" consola rechazar "$otra" "$1" >/dev/null
+    done
+}
 
 paso "El analista decide" "Aprobar $ACCION (con el token del analista) y el respondedor la aplica en el router."
 if [[ $AUTO -eq 0 ]]; then
     read -r -p "   ¿Aprobar $ACCION? [s/N] " RESP
-    [[ "$RESP" =~ ^[sS] ]] || { consola rechazar "$ACCION" "rechazada en la demo"; exit 0; }
+    if [[ ! "$RESP" =~ ^[sS] ]]; then
+        rechazar_resto "rechazada en la demo"
+        echo "   Rechazadas todas las propuestas del incidente. Fin de la demo."
+        exit 0
+    fi
 fi
 ANALISTA="${ANALISTA:-analista-feria}" consola aprobar "$ACCION" "${ANALISTA:-analista-feria}"
+rechazar_resto "alcanza con $ACCION" "$ACCION"
 consola esperar-accion "$ACCION" 30
 
-paso "Contención efectiva" "El atacante ya no llega. El resto de la red sigue igual."
+if [[ "$TIPO" == aislar_host ]]; then
+    paso "Contención efectiva" "web-01 queda aislado: solo lo alcanzan el SSH desde gestión y la telemetría al SOC."
+else
+    paso "Contención efectiva" "El atacante ya no llega. El resto de la red sigue igual."
+fi
 probar atacante 10.20.0.11 80
 probar web-01 10.10.0.5 80
 ./revertir.sh 2>/dev/null | grep -E '"ACC|DROP' | sed 's/^/   /'
@@ -101,7 +130,7 @@ paso "Un caso normal: actualización de firmas" \
    decidir si es normal es trabajo del agente."
 read -r _ INC1 < <(consola ultimo | tr -d '\r')
 ./simular.sh firmas
-docker compose exec -T -u nodo analista consola esperar db-01 "$INC1" 90 </dev/null | tr -d '\r' | grep -v '^ACCIONES='
+docker compose exec -T -u nodo analista consola esperar db-01 "$INC1" 180 </dev/null | tr -d '\r' | grep -v '^ACCIONES='
 
 paso "Auditoría" "Cada paso del agente quedó en un ledger encadenado por hash."
 consola ledger

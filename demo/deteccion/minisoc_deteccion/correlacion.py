@@ -21,6 +21,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 from typing import Any, Callable
 
 from .almacen import Almacen
@@ -35,6 +36,13 @@ log = logging.getLogger("minisoc_deteccion.correlacion")
 # del incidente no pase de MAX_CARACTERES.
 MAX_CARACTERES = 5500
 MARGEN_CONTEXTO = 5       # cuántos ids antes y después mirar para el contexto
+# Y solo eventos cercanos en el tiempo: los ids son correlativos, pero entre dos ids
+# del mismo host pueden pasar minutos. Sin este límite, las pruebas de verificar.sh
+# hechas antes del ataque entraban como contexto y Llama las tomaba como parte del
+# ataque (lo vimos en la demo con Ollama).
+# 10 s alcanza para lo que rodea a un ataque (los pasos de la webshell están a 1-2 s
+# entre sí) y deja afuera las pruebas que la demo corre ~14 s antes.
+VENTANA_CONTEXTO = 10     # segundos antes del primer evento citado y después del último
 CAMPOS_ALERTA = ("alerta_id", "regla_id", "tecnica", "severidad", "descripcion", "eventos")
 CAMPOS_EVENTO = ("evento_id", "ts", "host", "tipo", "datos")
 
@@ -49,6 +57,14 @@ Contexto = Callable[[str, int, int], list[dict[str, Any]]]
 
 def _num(evento_id: str) -> int:
     return int(evento_id.split("-")[-1])
+
+
+def _instante(ts: Any) -> float | None:
+    """Segundos desde epoch de un ts ISO 8601 de la ingesta ("...T01:53:51.330Z")."""
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 def enviar_http(url_agente: str, token: str = "", timeout: float = 150.0) -> Enviar:
@@ -146,6 +162,11 @@ class Correlador:
             except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
                 log.warning("sin contexto para %s (%s): van solo los eventos citados", incidente["incidente_id"], e)
                 candidatos = []
+            instantes = [t for t in (_instante(e["ts"]) for e in citados.values()) if t is not None]
+            if instantes:
+                desde, hasta = min(instantes) - VENTANA_CONTEXTO, max(instantes) + VENTANA_CONTEXTO
+                candidatos = [e for e in candidatos
+                              if (t := _instante(e.get("ts"))) is not None and desde <= t <= hasta]
             # Primero los más cercanos a algún evento citado.
             candidatos.sort(key=lambda e: min(abs(_num(e["evento_id"]) - n) for n in numeros))
             for e in candidatos:
@@ -162,6 +183,17 @@ class Correlador:
 
     # ------------------------------------------------------------------ ciclo
     def ciclo(self) -> None:
+        """Agrupar y despachar en el mismo hilo (tests y uso simple)."""
+        self.agrupar()
+        self.despachar()
+
+    # El servicio corre agrupar() y despachar() en hilos separados: el agente con Llama
+    # tarda hasta un minuto por incidente, y si el agrupamiento esperara al envío, las
+    # alertas que llegan mientras tanto se sumarían tarde, con la hora del final del
+    # envío, y quedarían en el mismo incidente que un ataque posterior (lo vimos en la
+    # demo: la última prueba de verificar.sh terminó dentro del incidente de la webshell).
+    def agrupar(self) -> None:
+        """Suma las alertas nuevas a los incidentes y cierra los inactivos."""
         ahora = self.reloj()
         while True:
             nuevas, ultimo = self.alertas.leer(self.incidentes.cursor(), 500)
@@ -171,8 +203,11 @@ class Correlador:
                 log.debug("alertas sumadas a %s", self.id_publico(iid))
         for iid in self.incidentes.cerrar_inactivos(ahora, self.inactividad, self.duracion_max):
             log.info("%s cerrado: %d alertas", self.id_publico(iid), len(self.incidentes.alertas_de(iid)))
-        for iid in self.incidentes.para_enviar(ahora):
-            self._enviar(iid, ahora)
+
+    def despachar(self) -> None:
+        """Manda al agente los incidentes cerrados (uno por vez, como espera Ollama)."""
+        for iid in self.incidentes.para_enviar(self.reloj()):
+            self._enviar(iid, self.reloj())
 
     def _enviar(self, iid: int, ahora: float) -> None:
         # Un reintento manda exactamente lo mismo que el primer intento.
