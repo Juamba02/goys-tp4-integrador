@@ -43,7 +43,7 @@ veredicto citando los eventos, y cada paso queda en un *ledger* auditable.
 
 Las 44 pruebas de red pasan. En la notebook de la Feria, el veredicto llega unos 70 s
 después del ataque y el bloqueo aprobado se aplica en menos de 2 s. Los controles sobre el modelo
-llevaron de 15 a 0 los ataques que el agente cerraba solo como benignos. No se usan
+llevaron de 15 a 0 los errores que el agente habría cerrado sin revisión. No se usan
 exploits reales: se simula la telemetría que dejarían, en una red aislada (Ley 26.388).
 
 ## 2. Arquitectura de la solución
