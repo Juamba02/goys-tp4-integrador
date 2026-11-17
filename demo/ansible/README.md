@@ -43,7 +43,7 @@ Tabla 1: roles de `site.yml`.
 |---|---|---|
 | `preparacion` | Docker y Compose v2 disponibles · `preparar.sh` · ningún token vacío · modelo del agente en `.env` | si faltaban variables en `.env` o se cambió el modelo |
 | `laboratorio` | construye las imágenes · levanta los servicios · espera los healthchecks · apaga Ollama si el agente no lo usa | si una imagen cambió o un servicio no estaba como debe |
-| `verificacion` | `red/verificar.sh` (43 pruebas) · ledger íntegro · Grafana con el dashboard | nunca: solo comprueba |
+| `verificacion` | `red/verificar.sh` (44 pruebas, 3 solo con Ollama) · ledger íntegro · Grafana con el dashboard | nunca: solo comprueba |
 
 Tabla 2: variables.
 
@@ -85,5 +85,5 @@ Tabla 3: corridas sobre el laboratorio levantado.
 | Con Grafana parado a mano | `changed=1`: lo levanta y queda sano |
 | `-e minisoc_llm=simulado`, dos veces | `changed=1` (escribe `.env`) y después `changed=0` |
 | `-e minisoc_llm=gpt` | falla antes de tocar nada |
-| `-e minisoc_llm=ollama -e minisoc_construir=false` | levanta Ollama con el 8B 100% en GPU · 43 OK · la 2.ª corrida `changed=0` |
-| después `-e minisoc_llm=simulado` | apaga Ollama · el agente vuelve al simulado · 43 OK |
+| `-e minisoc_llm=ollama -e minisoc_construir=false` | levanta Ollama con el 8B 100% en GPU · 44 OK · la 2.ª corrida `changed=0` |
+| después `-e minisoc_llm=simulado` | apaga Ollama · el agente vuelve al simulado · 41 OK y 3 omitidas |

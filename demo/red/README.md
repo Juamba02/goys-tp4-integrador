@@ -21,7 +21,7 @@ Desde `demo/`:
 ```bash
 ./preparar.sh                  # una sola vez: genera .env con tokens aleatorios
 docker compose up -d --build   # levanta todo (la primera vez construye las imágenes)
-./red/verificar.sh             # 43 pruebas de rutas, segmentación y monitoreo
+./red/verificar.sh             # 44 pruebas de rutas, segmentación y monitoreo (3 solo con Ollama)
 docker compose down            # la baja
 ```
 

@@ -55,8 +55,9 @@ MINISOC_CONSTRUIR=no ./demo.sh
 Con `minisoc_llm=ollama`, Ansible escribe en `.env` `LLM_BACKEND=ollama` y
 `COMPOSE_PROFILES=ollama`, y eso levanta el servicio `ollama`:
 
-- **En el SOC (`10.30.0.70`)**, al lado del agente y sin salida a Internet. Desde
-  servicios o desde el atacante no se llega (dos pruebas de `red/verificar.sh`).
+- **En el SOC (`10.30.0.70`)**, al lado del agente y sin salida a Internet. El agente
+  llega y desde servicios o desde el atacante no (tres pruebas de `red/verificar.sh`,
+  que se omiten si Ollama no está levantado).
 - **Necesita una GPU NVIDIA.** Docker Desktop la pasa al contenedor si el driver está
   instalado (`docker run --rm --gpus all ubuntu nvidia-smi` tiene que mostrarla).
 - **Configurado para 6 GB de VRAM** (GTX 1660 Ti): un solo modelo cargado, una

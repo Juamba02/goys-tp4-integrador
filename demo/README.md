@@ -42,7 +42,7 @@ Tabla 1: los 11 pasos de la demo.
 | # | Paso | Qué se ve |
 |---|------|-----------|
 | 1 | Levantar el laboratorio | 4 segmentos, router, servicios y SOC. Salud de cada servicio |
-| 2 | La red hace lo que dice el diseño | `43 OK, 0 fallas` |
+| 2 | La red hace lo que dice el diseño | `41 OK, 0 fallas, 3 omitidas` (con Llama, `44 OK`) |
 | 3 | Antes del ataque | `atacante → web-01:80 abierto` |
 | 4 | Ataque: webshell | `php-fpm → sh -c id`, `cat /etc/passwd`, `wget` desde Internet |
 | 5 | Detección | 8 alertas MITRE (T1059, T1082, T1003, T1105, T1071) |
@@ -57,7 +57,7 @@ Tabla 1: los 11 pasos de la demo.
 
 | Carpeta | Qué es | Detalle |
 |---|---|---|
-| [`red/`](red/README.md) | Segmentos, router con firewall, sensor, simulador de ataques | `verificar.sh`: 43 pruebas |
+| [`red/`](red/README.md) | Segmentos, router con firewall, sensor, simulador de ataques | `verificar.sh`: 44 pruebas |
 | [`ingesta/`](ingesta/README.md) | Recibe, valida y normaliza la telemetría (`10.30.0.10:8081`) | 25 tests |
 | [`deteccion/`](deteccion/README.md) | 9 reglas MITRE y correlación en incidentes (`10.30.0.40:8082`) | 34 tests |
 | [`agente/`](agente/README.md) | Triage con LLM local, aprobación humana y ledger (`10.30.0.20:8088`) | de Joaquín |
