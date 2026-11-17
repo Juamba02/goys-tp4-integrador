@@ -388,8 +388,12 @@ Ningún modelo resistió la inyección de prompt: la frenaron los controles.
 - **Correlación:** agrupa por host, así que un movimiento lateral queda partido en dos
   incidentes.
 
-[Pendiente: limitaciones de automatización y monitoreo]
-
+- **Automatización:** Ansible maneja una sola notebook a través de Docker Compose; con
+  varios hosts haría falta un inventario real y SSH. Sin Internet no se pueden
+  reconstruir las imágenes, solo usar las que se cargaron antes.
+- **Monitoreo:** sin Alertmanager, las alertas solo se ven en el dashboard. La
+  exactitud del agente se mide solo con incidentes etiquetados, porque uno real no
+  trae la respuesta correcta.
 - **Agente:** los modelos chicos se equivocan seguido (50 % en los incidentes de
   control) y declaran confianza alta igual. Los controles evitan el daño, pero
   muchos incidentes terminan en el analista. La evaluación usa pocos incidentes
@@ -408,6 +412,11 @@ equivoca y obedece texto inyectado, sino los controles que lo rodean y la
 aprobación humana. Medir antes y después de cada cambio permitió llevar a cero
 los errores que el agente cerraba solo, y el ledger deja cada decisión lista para
 auditar.
+
+En la parte de operación, que el despliegue sea idempotente hizo que la demo se
+pueda reconstruir y comprobar con un solo comando, sin pasos a mano. Medir la red y
+el SOC desde el mismo dashboard permite ver, en el momento, el ataque, el veredicto
+y la contención.
 
 ## 7. Referencias
 
