@@ -6,6 +6,7 @@
 #                     ./demo.sh --bajar   baja todo (incluido el agente)
 #
 # Funciona offline: todo corre en la notebook, en redes de Docker sin salida.
+# Sin Internet, con las imágenes ya cargadas (offline/): MINISOC_CONSTRUIR=no ./demo.sh
 set -uo pipefail
 cd "$(dirname "$0")"
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no convertir rutas tipo /usr/...
@@ -41,7 +42,10 @@ echo -e "${G}Grupo 13 · GOYS · UTN FR La Plata${F}"
 
 paso "Levantar el laboratorio" \
      "Cuatro segmentos (gestión, servicios, SOC, externo) unidos por un router con firewall."
-docker compose up -d --build 2>&1 | grep -iE "error" && morir "falló docker compose up"
+# Construir necesita Internet aunque esté todo en caché (Docker consulta las imágenes
+# base en el registro), así que sin Internet se usa lo que ya está cargado.
+CONSTRUIR=--build; [[ "${MINISOC_CONSTRUIR:-si}" == "no" ]] && CONSTRUIR=--no-build
+docker compose up -d $CONSTRUIR 2>&1 | grep -iE "error" && morir "falló docker compose up"
 # Router, ingesta, detección, agente y respondedor tienen healthcheck. `-x`: que no
 # cuente los "unhealthy" (comentario de Tomás en el PR #4).
 CON_HEALTHCHECK=$(docker compose ps --format '{{.Health}}' | grep -cv '^$')
@@ -51,7 +55,7 @@ done
 consola estado || morir "algún servicio del SOC no responde"
 
 paso "La red hace lo que dice el diseño" \
-     "41 pruebas: lo permitido llega, lo demás lo descarta el router, nadie sale a Internet."
+     "44 pruebas (3 solo con Llama): lo permitido llega, lo demás lo descarta el router, nadie sale a Internet."
 ./red/verificar.sh | tail -2
 # Las pruebas (SSH desde web-01, salida a Internet) también disparan alertas, como
 # corresponde. Se espera a que ese incidente se cierre para no mezclarlo con el ataque.

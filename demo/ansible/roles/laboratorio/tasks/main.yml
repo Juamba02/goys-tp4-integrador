@@ -74,6 +74,24 @@
     wait_timeout: "{{ minisoc_espera }}"
   register: compose
 
+# Sin el perfil "ollama", Compose deja de manejar ese contenedor pero no lo baja, y
+# seguiría ocupando la memoria de la GPU.
+- name: Servicios del perfil activo
+  ansible.builtin.command: docker compose config --services
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: activos
+  changed_when: false
+  check_mode: false  # solo lee: corre también con --check
+
+- name: Ollama apagado si el agente no lo usa
+  ansible.builtin.command: docker compose --profile ollama rm --stop --force ollama
+  args:
+    chdir: "{{ minisoc_demo }}"
+  register: ollama_rm
+  changed_when: "'Removed' in ollama_rm.stderr"
+  when: "'ollama' not in activos.stdout_lines"
+
 - name: Servicios
   ansible.builtin.debug:
     msg: "{{ compose.containers | map(attribute='Name') | sort | join(', ') }}"

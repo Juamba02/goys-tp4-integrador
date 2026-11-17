@@ -13,7 +13,7 @@
 #
 #   gestion   10.10.0.0/24   administración (Ansible, espejo de paquetes)
 #   servicios 10.20.0.0/24   servicios monitoreados (web, api, db)
-#   soc       10.30.0.0/24   el propio SOC (ingesta, detección, agente, respondedor)
+#   soc       10.30.0.0/24   el propio SOC (ingesta, detección, agente, Ollama, respondedor)
 #   externo   10.99.0.0/24   "Internet" simulada: red NO confiable
 #
 # El router tiene la .254 en cada segmento. La .1 la reserva Docker para el bridge
@@ -157,8 +157,8 @@ services:
         condition: service_healthy
 
   # Agente de triage (demo/agente, de Joaquín). Por defecto usa el modelo simulado,
-  # que corre offline y sin GPU. Para usar Llama: LLM_BACKEND=ollama y OLLAMA_URL
-  # apuntando a un Ollama con el modelo ya descargado (ver demo/agente/README.md).
+  # que corre offline y sin GPU. Para usar Llama: LLM_BACKEND=ollama y el perfil
+  # "ollama" (servicio de abajo, ver offline/README.md).
   agente:
     build: ./agente
     image: minisoc/agente:dev
@@ -170,7 +170,7 @@ services:
     tmpfs: [/tmp]
     environment:
       LLM_BACKEND: ${LLM_BACKEND:-simulado}
-      OLLAMA_URL: ${OLLAMA_URL:-http://127.0.0.1:11434}
+      OLLAMA_URL: ${OLLAMA_URL:-http://10.30.0.70:11434}
       OLLAMA_MODELO: ${OLLAMA_MODELO:-llama3.1:8b}
       INGESTA_TOKEN: ${INGESTA_TOKEN:-}
       ANALISTA_TOKEN: ${ANALISTA_TOKEN:-}
@@ -180,6 +180,47 @@ services:
       - agente-datos:/datos
     networks:
       soc: {ipv4_address: 10.30.0.20}
+    restart: unless-stopped
+    depends_on:
+      # Solo si está el perfil "ollama": el agente precarga el modelo al arrancar.
+      ollama:
+        condition: service_healthy
+        required: false
+
+  # Llama local para el agente. Solo con el perfil "ollama" (COMPOSE_PROFILES=ollama
+  # en .env), porque necesita una GPU NVIDIA. Está en el SOC junto al agente, sin
+  # salida a Internet: el modelo se descarga antes con offline/preparar.sh y vive en
+  # el volumen ollama-modelos.
+  ollama:
+    image: ollama/ollama:0.40.12
+    container_name: ollama
+    hostname: ollama
+    profiles: [ollama]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      # Pensado para 6 GB de VRAM (GTX 1660 Ti): un modelo, una consulta a la vez
+      # (cada consulta en paralelo reserva su propio contexto). El agente pide en
+      # cada consulta que el modelo quede cargado 30 min (agente/minisoc_agente/llm.py).
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: "4096"
+    volumes:
+      - ollama-modelos:/root/.ollama
+    networks:
+      soc: {ipv4_address: 10.30.0.70}
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+    healthcheck:
+      # Sano solo si el modelo del agente ya está descargado.
+      test: ["CMD", "ollama", "show", "${OLLAMA_MODELO:-llama3.1:8b}"]
+      interval: 5s
+      retries: 12
     restart: unless-stopped
 
   deteccion:
@@ -355,3 +396,5 @@ volumes:
   prometheus-datos:
   # Base de Grafana (usuarios, preferencias). Los dashboards vienen del repo.
   grafana-datos:
+  # Modelos de Ollama (~4,9 GB el 8B). Lo llena offline/preparar.sh.
+  ollama-modelos:

@@ -44,7 +44,34 @@ atacante    10.30.0.61  3000  bloqueado  Internet no llega a Grafana
 FIN
 )
 
-ok=0; fallas=0
+# Solo con el perfil ollama: sin el contenedor, 10.30.0.70 no responde y
+# "bloqueado" saldría igual aunque el router dejara pasar todo.
+PRUEBAS_OLLAMA=$(cat <<'FIN'
+web-01      10.30.0.70  11434 bloqueado  un servidor comprometido no llega al modelo
+atacante    10.30.0.70  11434 bloqueado  ni Internet
+FIN
+)
+
+ok=0; fallas=0; omitidas=0
+
+# resultado origen ip puerto esperado obtenido descripción
+resultado() {
+    if [[ "$5" == "$4" ]]; then
+        printf '  OK    %-9s -> %-13s %-9s %s\n' "$1" "$2:$3" "$5" "$6"; ok=$((ok + 1))
+    else
+        printf '  FALLA %-9s -> %-13s %-9s (esperado %s) %s\n' "$1" "$2:$3" "${5:-error}" "$4" "$6"
+        fallas=$((fallas + 1))
+    fi
+}
+
+probar_todas() {
+    local origen ip puerto esperado desc obtenido
+    while read -r origen ip puerto esperado desc; do
+        [[ -z "$origen" ]] && continue
+        obtenido=$(docker compose exec -T -u nodo "$origen" probar "$ip" "$puerto" 2>/dev/null </dev/null | tr -d '\r')
+        resultado "$origen" "$ip" "$puerto" "$esperado" "$obtenido" "$desc"
+    done <<< "$1"
+}
 
 echo "== Rutas por defecto"
 for nodo in ansible web-01 ingesta respondedor analista atacante; do
@@ -57,16 +84,20 @@ for nodo in ansible web-01 ingesta respondedor analista atacante; do
 done
 
 echo "== Conectividad y segmentación"
-while read -r origen ip puerto esperado desc; do
-    [[ -z "$origen" ]] && continue
-    obtenido=$(docker compose exec -T -u nodo "$origen" probar "$ip" "$puerto" 2>/dev/null </dev/null | tr -d '\r')
-    if [[ "$obtenido" == "$esperado" ]]; then
-        printf '  OK    %-9s -> %-13s %-9s %s\n' "$origen" "$ip:$puerto" "$obtenido" "$desc"; ok=$((ok + 1))
-    else
-        printf '  FALLA %-9s -> %-13s %-9s (esperado %s) %s\n' "$origen" "$ip:$puerto" "${obtenido:-error}" "$esperado" "$desc"
-        fallas=$((fallas + 1))
-    fi
-done <<< "$PRUEBAS"
+probar_todas "$PRUEBAS"
+
+echo "== Ollama (perfil ollama)"
+if [[ -n "$(docker compose --profile ollama ps -q --status running ollama 2>/dev/null)" ]]; then
+    probar_todas "$PRUEBAS_OLLAMA"
+    # El agente no trae `probar`: la misma conexión, con Python.
+    obtenido=$(docker compose exec -T agente python -c \
+        "import socket; socket.create_connection(('10.30.0.70', 11434), timeout=3); print('abierto')" \
+        2>/dev/null </dev/null | tr -d '\r')
+    resultado agente 10.30.0.70 11434 abierto "${obtenido:-bloqueado}" "el agente llega al modelo"
+else
+    omitidas=3
+    echo "  OMITIDAS ($omitidas): Ollama no está levantado, el agente usa el simulado"
+fi
 
 echo "== Monitoreo: Prometheus lee a cada servicio"
 # Prometheus lee cada 5 s: se espera hasta 20 s a que cada objetivo responda.
@@ -90,5 +121,9 @@ echo "== Paquetes descartados por la segmentación"
 docker compose exec -T router iptables -L MINISOC-DENEGADO -v -n -x 2>/dev/null </dev/null | tr -d '\r' | awk '$3 == "DROP" {print "  " $1 " paquetes descartados"}'
 
 echo
-echo "Resultado: $ok OK, $fallas fallas"
+if [[ $omitidas -gt 0 ]]; then
+    echo "Resultado: $ok OK, $fallas fallas, $omitidas omitidas"
+else
+    echo "Resultado: $ok OK, $fallas fallas"
+fi
 [[ $fallas -eq 0 ]]
